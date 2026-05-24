@@ -1,0 +1,25 @@
+server:
+  host: 0.0.0.0
+  port: 7080
+
+database:
+  driver: sqlite
+  dsn: data/siphongear.db
+
+auth:
+  jwt_secret: change-me-please-32bytes-or-more
+  master_key: change-me-please-32bytes-or-more
+  init_username: admin
+  init_password: admin
+  token_ttl_hrs: 168
+
+log:
+  level: info
+  pretty: true
+
+browser:
+  ws_url: ""
+
+runner:
+  max_concurrency: 4
+  default_timeout: 60

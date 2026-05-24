@@ -1,0 +1,24 @@
+# binaries
+/bin/
+/dist/
+siphongear
+
+# data
+*.db
+*.db-shm
+*.db-wal
+data/
+config.yaml
+
+# go
+.idea/
+*.test
+*.out
+coverage.*
+
+# node
+web/node_modules/
+web/dist/*
+!web/dist/.gitkeep
+.DS_Store
+.env

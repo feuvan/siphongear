@@ -1,0 +1,1 @@
+placeholder so go:embed has a directory; run `make web` (or `cd web && npm run build`) to populate.
