@@ -119,49 +119,55 @@ onMounted(reload)
 
     <el-empty v-if="!cards.length && !loading" description="No indicators yet. Add some collectors first." />
 
-    <div v-for="group in groupedBySite" :key="group.siteName" class="site-group">
-      <div class="site-header" :style="{ borderColor: siteAccent(group.siteId) }">
-        <span class="site-dot" :style="{ background: siteAccent(group.siteId) }"></span>
-        <span class="site-name">{{ group.siteName }}</span>
-        <span class="site-count">{{ group.cards.length }}</span>
-      </div>
+    <el-row :gutter="16">
+      <el-col
+        v-for="group in groupedBySite"
+        :key="group.siteName"
+        :xs="24" :sm="24" :md="12" :lg="8" :xl="6"
+      >
+        <div class="site-card" :style="{ '--accent': siteAccent(group.siteId) } as any">
+          <div class="site-header">
+            <span class="site-dot"></span>
+            <span class="site-name">{{ group.siteName }}</span>
+            <span class="site-count">{{ group.cards.length }}</span>
+          </div>
 
-      <el-row :gutter="16">
-        <el-col v-for="c in group.cards" :key="c.indicator_id" :xs="24" :sm="12" :md="8" :lg="6">
-          <div class="metric" :style="{ '--accent': siteAccent(group.siteId) } as any">
-            <div class="metric-head">
-              <span class="metric-name">{{ c.name }}</span>
-              <el-tag size="small" :type="statusType(c.last_status)" effect="plain">
-                {{ c.last_status || '—' }}
-              </el-tag>
-            </div>
+          <div class="metrics">
+            <div v-for="c in group.cards" :key="c.indicator_id" class="metric">
+              <div class="metric-head">
+                <span class="metric-name">{{ c.name }}</span>
+                <el-tag size="small" :type="statusType(c.last_status)" effect="plain">
+                  {{ c.last_status || '—' }}
+                </el-tag>
+              </div>
 
-            <div class="metric-value">
-              <span class="num">{{ formatValue(c) }}</span>
-              <span v-if="c.unit" class="unit">{{ c.unit }}</span>
-            </div>
+              <div class="metric-value">
+                <span class="num">{{ formatValue(c) }}</span>
+                <span v-if="c.unit" class="unit">{{ c.unit }}</span>
+              </div>
 
-            <div class="meta">
-              <span class="key">{{ c.key }}</span>
-              <span class="dot">·</span>
-              <span class="collector">{{ c.collector_name }}</span>
-            </div>
+              <div class="meta">
+                <span class="key">{{ c.key }}</span>
+                <span class="dot">·</span>
+                <span class="collector">{{ c.collector_name }}</span>
+              </div>
 
-            <div class="footer">
-              <span class="ts">{{ relativeTime(c.ts) }}</span>
-              <div class="actions">
-                <el-button
-                  link size="small" :loading="refreshing[c.collector_id]"
-                  @click="refresh(c)"
-                >Run</el-button>
-                <el-button link size="small" @click="gotoRuns(c)">History</el-button>
-                <el-button link size="small" @click="gotoEdit(c)">Edit</el-button>
+              <div class="footer">
+                <span class="ts">{{ relativeTime(c.ts) }}</span>
+                <div class="actions">
+                  <el-button
+                    link size="small" :loading="refreshing[c.collector_id]"
+                    @click="refresh(c)"
+                  >Run</el-button>
+                  <el-button link size="small" @click="gotoRuns(c)">History</el-button>
+                  <el-button link size="small" @click="gotoEdit(c)">Edit</el-button>
+                </div>
               </div>
             </div>
           </div>
-        </el-col>
-      </el-row>
-    </div>
+        </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -175,26 +181,50 @@ onMounted(reload)
 .bar h2 { margin: 0 0 4px; font-size: 24px; }
 .subtitle { color: #909399; font-size: 13px; }
 
-.site-group { margin-bottom: 28px; }
+.site-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 14px 16px 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: box-shadow .2s, transform .2s;
+}
+.site-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent, #5b8def);
+}
+.site-card:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
+  transform: translateY(-1px);
+}
 
 .site-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 0 10px;
-  margin-bottom: 12px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
   border-bottom: 1px solid #ebeef5;
-  border-bottom-width: 2px;
 }
 .site-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  background: var(--accent, #5b8def);
 }
 .site-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: #303133;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .site-count {
   font-size: 12px;
@@ -204,33 +234,26 @@ onMounted(reload)
   border-radius: 10px;
 }
 
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .metric {
-  position: relative;
-  background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-  transition: box-shadow .2s, transform .2s;
-  overflow: hidden;
+  padding: 10px 0;
+  border-bottom: 1px dashed #ebeef5;
 }
-.metric::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: var(--accent, #5b8def);
-}
-.metric:hover {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
-  transform: translateY(-1px);
+.metric:last-child {
+  border-bottom: none;
+  padding-bottom: 2px;
 }
 
 .metric-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 .metric-name {
   font-size: 13px;
@@ -242,18 +265,18 @@ onMounted(reload)
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin-bottom: 10px;
-  min-height: 38px;
+  margin-bottom: 6px;
+  min-height: 32px;
 }
 .metric-value .num {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
   color: #303133;
   line-height: 1;
   letter-spacing: -0.5px;
 }
 .metric-value .unit {
-  font-size: 13px;
+  font-size: 12px;
   color: #909399;
 }
 
@@ -263,7 +286,7 @@ onMounted(reload)
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 .meta .key {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -273,14 +296,17 @@ onMounted(reload)
   color: #606266;
 }
 .meta .dot { color: #c0c4cc; }
-.meta .collector { color: #606266; }
+.meta .collector {
+  color: #606266;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 10px;
-  border-top: 1px dashed #ebeef5;
 }
 .ts {
   font-size: 11px;
@@ -288,5 +314,10 @@ onMounted(reload)
 }
 .actions :deep(.el-button + .el-button) {
   margin-left: 4px;
+}
+.actions :deep(.el-button) {
+  padding: 4px 6px;
+  height: auto;
+  font-size: 12px;
 }
 </style>
