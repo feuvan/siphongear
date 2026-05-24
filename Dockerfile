@@ -7,18 +7,25 @@ RUN npm run build
 
 FROM golang:1.26-alpine AS go
 WORKDIR /src
-RUN apk add --no-cache build-base
+RUN apk add --no-cache build-base git
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/siphongear ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/siphongear ./cmd/server
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
+RUN apk add --no-cache ca-certificates tzdata wget \
+ && adduser -D -u 1000 siphon
 COPY --from=go /out/siphongear /app/siphongear
 COPY config.yaml.example /app/config.yaml.example
-ENV SIPHON_DATABASE__DSN=/app/data/siphongear.db
+RUN mkdir -p /app/data && chown -R siphon:siphon /app
+USER siphon
+ENV SIPHON_SERVER__HOST=0.0.0.0 \
+    SIPHON_SERVER__PORT=7080 \
+    SIPHON_DATABASE__DSN=/app/data/siphongear.db \
+    SIPHON_LOG__LEVEL=info
+VOLUME ["/app/data"]
 EXPOSE 7080
 ENTRYPOINT ["/app/siphongear"]
