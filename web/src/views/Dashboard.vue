@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { api } from '@/api'
+
+const AUTO_KEY = 'dashboard.autoReload'
+const INT_KEY = 'dashboard.autoReloadInterval'
+const INTERVAL_OPTIONS = [10, 30, 60, 120, 300]
 
 interface Card {
   collector_id: number
@@ -27,6 +31,27 @@ const router = useRouter()
 const cards = ref<Card[]>([])
 const loading = ref(false)
 const refreshing = ref<Record<number, boolean>>({})
+const autoReload = ref(localStorage.getItem(AUTO_KEY) !== '0')
+const intervalSec = ref(Number(localStorage.getItem(INT_KEY)) || 30)
+let timer: number | null = null
+
+function stopTimer() {
+  if (timer !== null) {
+    clearInterval(timer)
+    timer = null
+  }
+}
+
+function startTimer() {
+  stopTimer()
+  if (!autoReload.value) return
+  const sec = Math.max(5, Number(intervalSec.value) || 30)
+  timer = window.setInterval(() => {
+    if (loading.value) return
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+    reload()
+  }, sec * 1000)
+}
 
 async function reload() {
   loading.value = true
@@ -130,7 +155,22 @@ const groupedBySite = computed(() => {
   return Object.values(groups).sort((a, b) => a.siteName.localeCompare(b.siteName))
 })
 
-onMounted(reload)
+onMounted(async () => {
+  await reload()
+  startTimer()
+})
+
+watch(autoReload, v => {
+  localStorage.setItem(AUTO_KEY, v ? '1' : '0')
+  startTimer()
+})
+
+watch(intervalSec, v => {
+  localStorage.setItem(INT_KEY, String(v))
+  startTimer()
+})
+
+onBeforeUnmount(stopTimer)
 </script>
 
 <template>
@@ -141,6 +181,23 @@ onMounted(reload)
         <div class="subtitle">{{ cards.length }} indicator(s) across {{ groupedBySite.length }} site(s)</div>
       </div>
       <div class="page-bar-actions">
+        <div class="auto-reload">
+          <span class="lbl">Auto</span>
+          <el-switch v-model="autoReload" />
+          <el-select
+            v-model="intervalSec"
+            size="small"
+            :disabled="!autoReload"
+            style="width: 88px"
+          >
+            <el-option
+              v-for="s in INTERVAL_OPTIONS"
+              :key="s"
+              :value="s"
+              :label="`${s}s`"
+            />
+          </el-select>
+        </div>
         <el-button :loading="loading" @click="reload">Reload</el-button>
         <el-button type="primary" :loading="loading" @click="refreshAll">Refresh All</el-button>
       </div>
@@ -212,6 +269,16 @@ onMounted(reload)
 <style scoped>
 .subtitle { color: var(--sg-text-secondary); font-size: 13px; margin-top: 4px; }
 
+.auto-reload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+}
+.auto-reload .lbl {
+  font-size: 12px;
+  color: var(--sg-text-secondary);
+}
 .site-card {
   position: relative;
   background: var(--sg-bg-card);
