@@ -36,6 +36,30 @@ async function reload() {
   }
 }
 
+async function refreshAll() {
+  if (loading.value) return
+  loading.value = true
+  try {
+    const ids = Array.from(new Set(cards.value.map(c => c.collector_id))).filter(Boolean)
+    if (!ids.length) {
+      cards.value = await api.dashboard()
+      return
+    }
+    const results = await Promise.allSettled(ids.map(id => api.collectors.run(id, {})))
+    const failed = results.filter(r => r.status === 'rejected').length
+    cards.value = await api.dashboard()
+    if (failed) {
+      ElMessage.warning(`${ids.length - failed}/${ids.length} collectors refreshed; ${failed} failed`)
+    } else {
+      ElMessage.success(`refreshed ${ids.length} collector(s)`)
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.error || 'refresh failed')
+  } finally {
+    loading.value = false
+  }
+}
+
 function formatValue(c: Card): string {
   if (c.value_num !== null && c.value_num !== undefined) {
     const n = c.value_num
@@ -115,7 +139,8 @@ onMounted(reload)
         <div class="subtitle">{{ cards.length }} indicator(s) across {{ groupedBySite.length }} site(s)</div>
       </div>
       <div class="page-bar-actions">
-        <el-button type="primary" :loading="loading" @click="reload">Refresh All</el-button>
+        <el-button :loading="loading" @click="reload">Reload</el-button>
+        <el-button type="primary" :loading="loading" @click="refreshAll">Refresh All</el-button>
       </div>
     </div>
 

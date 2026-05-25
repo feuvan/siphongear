@@ -109,8 +109,8 @@ async function load() {
     catch (e) { def.value = { steps: [], indicators: [] } }
     indicators.value = await api.indicators.list(id.value)
   }
-  if (!id.value && route.query.template) {
-    presetTemplate.value = String(route.query.template)
+  if (!id.value && (route.query.template || route.query.fromTemplate === '1')) {
+    presetTemplate.value = route.query.template ? String(route.query.template) : ''
     templateDialog.value = true
   }
 }
@@ -148,7 +148,7 @@ async function dryRun() {
   }
 }
 
-async function applyTemplate(payload: { template: any; vars: Record<string, string>; credentialId: number; name: string; siteId: number }) {
+async function applyTemplate(payload: { template: any; vars: Record<string, string>; credentialId: number; name: string; siteId: number; hiddenKeys?: string[]; scheduleType?: string; scheduleSpec?: string }) {
   const tpl = payload.template
   const vars: Record<string, string> = { ...payload.vars }
   if (typeof vars.base_url === 'string') {
@@ -176,8 +176,8 @@ async function applyTemplate(payload: { template: any; vars: Record<string, stri
   collector.value.name = payload.name
   collector.value.site_id = payload.siteId
   collector.value.timeout = tpl.timeout || 60
-  collector.value.schedule_type = tpl.schedule_type || 'none'
-  collector.value.schedule_spec = tpl.schedule_spec || ''
+  collector.value.schedule_type = payload.scheduleType ?? tpl.schedule_type ?? 'none'
+  collector.value.schedule_spec = payload.scheduleSpec ?? tpl.schedule_spec ?? ''
   collector.value.enabled = true
   collector.value.pipeline_json = JSON.stringify(def.value)
 
@@ -194,8 +194,9 @@ async function applyTemplate(payload: { template: any; vars: Record<string, stri
 
     const pending = (tpl.indicators || []) as any[]
     if (collector.value.id && pending.length) {
+      const hiddenSet = new Set(payload.hiddenKeys || [])
       for (const ind of pending) {
-        try { await api.indicators.create(collector.value.id, ind) } catch {}
+        try { await api.indicators.create(collector.value.id, { ...ind, hidden: hiddenSet.has(ind.key) }) } catch {}
       }
       indicators.value = await api.indicators.list(collector.value.id)
     }

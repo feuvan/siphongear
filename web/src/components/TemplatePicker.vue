@@ -21,7 +21,7 @@ interface Template {
 const props = defineProps<{ modelValue: boolean; siteId?: number; presetName?: string }>()
 const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
-  (e: 'apply', payload: { template: Template; vars: Record<string, string>; credentialId: number; name: string; siteId: number }): void
+  (e: 'apply', payload: { template: Template; vars: Record<string, string>; credentialId: number; name: string; siteId: number; hiddenKeys: string[]; scheduleType: string; scheduleSpec: string }): void
 }>()
 
 const visible = computed({
@@ -43,6 +43,10 @@ const newSite = reactive({ name: '', base_url: '' })
 const credentialMode = ref<'pick' | 'create'>('pick')
 const newCredName = ref<string>('')
 const newCredFields = ref<Record<string, string>>({})
+
+const visibleIndicatorKeys = ref<string[]>([])
+const scheduleType = ref<string>('none')
+const scheduleSpec = ref<string>('')
 
 const form = reactive<{ name: string; credential_id: number; vars: Record<string, string> }>({
   name: '',
@@ -104,6 +108,9 @@ async function loadDetail() {
   for (const v of detail.value!.variables) {
     form.vars[v.name] = v.default ?? ''
   }
+  visibleIndicatorKeys.value = (detail.value!.indicators || []).map((i: any) => i.key)
+  scheduleType.value = detail.value!.schedule_type || 'none'
+  scheduleSpec.value = detail.value!.schedule_spec || ''
   syncBaseURL()
   resetNewCred()
   if (!credentials.value.length && detail.value!.needs_credential) {
@@ -234,12 +241,18 @@ async function apply() {
   const credId = await ensureCredential(siteId)
   if (credId === null) return
 
+  const allKeys = (detail.value.indicators || []).map((i: any) => i.key)
+  const hiddenKeys = allKeys.filter(k => !visibleIndicatorKeys.value.includes(k))
+
   emit('apply', {
     template: detail.value,
     vars: form.vars,
     credentialId: credId,
     name: form.name,
-    siteId
+    siteId,
+    hiddenKeys,
+    scheduleType: scheduleType.value,
+    scheduleSpec: scheduleSpec.value,
   })
   visible.value = false
 }
@@ -357,8 +370,42 @@ onMounted(() => {})
           </template>
         </template>
 
+        <el-divider content-position="left">Schedule</el-divider>
+        <el-form-item label="Schedule Type">
+          <el-select v-model="scheduleType" style="width: 240px">
+            <el-option label="None" value="none" />
+            <el-option label="Interval" value="interval" />
+            <el-option label="Cron" value="cron" />
+            <el-option label="Event" value="event" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="scheduleType !== 'none'" label="Schedule Spec">
+          <el-input
+            v-model="scheduleSpec"
+            :placeholder="scheduleType === 'interval' ? '5m / 30s / 1h' : scheduleType === 'cron' ? '0 */15 * * * *' : 'collector.<id>.completed'"
+          />
+        </el-form-item>
+
+        <template v-if="(detail?.indicators || []).length">
+          <el-divider content-position="left">Indicators</el-divider>
+          <el-form-item label="Show on Dashboard">
+            <el-checkbox-group v-model="visibleIndicatorKeys">
+              <el-checkbox
+                v-for="ind in detail?.indicators || []"
+                :key="ind.key"
+                :label="ind.key"
+              >
+                {{ ind.name || ind.key }}
+                <span style="color:#999;font-size:12px">
+                  ({{ ind.key }}{{ ind.unit ? ` · ${ind.unit}` : '' }})
+                </span>
+              </el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+        </template>
+
         <el-alert type="info" :closable="false" show-icon>
-          Save 后会自动创建对应 Indicator（{{ detail?.indicators?.map(i => i.key).join(', ') || '无' }}），调度类型 = {{ detail?.schedule_type }}，间隔/cron = {{ detail?.schedule_spec || '—' }}。
+          Save 后会自动创建对应 Indicator（{{ detail?.indicators?.map(i => i.key).join(', ') || '无' }}），调度类型 = {{ scheduleType }}，间隔/cron = {{ scheduleSpec || '—' }}。
         </el-alert>
       </el-form>
     </div>

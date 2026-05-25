@@ -55,6 +55,7 @@ async function remove(row: any) {
 }
 
 function gotoNew() { router.push({ name: 'collector-new' }) }
+function gotoNewFromTemplate() { router.push({ name: 'collector-new', query: { fromTemplate: '1' } }) }
 function gotoEdit(row: any) { router.push({ name: 'collector-edit', params: { id: row.id } }) }
 function gotoRuns(row: any) { router.push({ name: 'collector-runs', params: { id: row.id } }) }
 
@@ -77,6 +78,7 @@ onMounted(reload)
       <h2>Collectors</h2>
       <div class="page-bar-actions">
         <el-button type="primary" @click="gotoNew">New Collector</el-button>
+        <el-button @click="gotoNewFromTemplate">New From Template</el-button>
       </div>
     </div>
     <ResponsiveTable :rows="rows" :columns="columns" :loading="loading" row-key="id">
