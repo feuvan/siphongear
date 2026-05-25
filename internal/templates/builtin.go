@@ -248,4 +248,55 @@ return { vars: {
 			{Key: "used", Name: "已用", Type: "number", Unit: "USD", Display: "line"},
 		},
 	})
+
+	Register(Template{
+		Name:            "rixapi-balance-accesstoken",
+		Description:     "RixAPI / 类 NewAPI 商业分支：使用「访问密钥」+ user_id 直接调 /api/user/self 取 balance（已是 USD）",
+		NeedsCredential: true,
+		CredentialHint: &TemplateCredentialHint{
+			Type: "token",
+			Fields: []TemplateCredentialField{
+				{Name: "access_token", Label: "Access Token", Type: "password", Required: true, Placeholder: "用户中心 -> 个人设置 -> 系统访问令牌"},
+				{Name: "user_id", Label: "User ID", Type: "text", Required: true, Placeholder: "如 12 (用户中心可见)"},
+			},
+		},
+		ScheduleType: "interval",
+		ScheduleSpec: "30m",
+		Timeout:      30,
+		Variables: []TemplateVariable{
+			{Name: "base_url", Label: "Base URL", Placeholder: "https://host", Required: true},
+		},
+		Pipeline: pipeline.Definition{
+			Steps: []pipeline.StepConfig{
+				{Kind: "input.credential", Name: "load credential",
+					Config: map[string]any{
+						"credential_id": 0,
+						"var_name":      "cred",
+					}},
+				{Kind: "fetch.http", Name: "fetch self",
+					Config: map[string]any{
+						"method": "GET",
+						"url":    "{{BASE_URL}}/api/user/self",
+						"headers": map[string]any{
+							"Authorization": "Bearer {{.vars.cred.access_token}}",
+							"New-Api-User":  "{{.vars.cred.user_id}}",
+						},
+						"timeout": 15,
+					}},
+				{Kind: "parse.json", Name: "parse self"},
+				{Kind: "extract.jsonpath", Name: "extract balance",
+					Config: map[string]any{
+						"mappings": []any{
+							map[string]any{"name": "balance", "path": "$.data.balance", "type": "number"},
+						},
+					}},
+			},
+			Indicators: []pipeline.IndicatorBind{
+				{Key: "balance"},
+			},
+		},
+		Indicators: []TemplateIndicator{
+			{Key: "balance", Name: "余额", Type: "number", Unit: "USD", Display: "line"},
+		},
+	})
 }
