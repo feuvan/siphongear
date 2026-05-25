@@ -109,12 +109,14 @@ onMounted(reload)
 
 <template>
   <div>
-    <div class="bar">
+    <div class="page-bar">
       <div>
         <h2>Dashboard</h2>
         <div class="subtitle">{{ cards.length }} indicator(s) across {{ groupedBySite.length }} site(s)</div>
       </div>
-      <el-button type="primary" :loading="loading" @click="reload">Refresh All</el-button>
+      <div class="page-bar-actions">
+        <el-button type="primary" :loading="loading" @click="reload">Refresh All</el-button>
+      </div>
     </div>
 
     <el-empty v-if="!cards.length && !loading" description="No indicators yet. Add some collectors first." />
@@ -172,34 +174,28 @@ onMounted(reload)
 </template>
 
 <style scoped>
-.bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-.bar h2 { margin: 0 0 4px; font-size: 24px; }
-.subtitle { color: #909399; font-size: 13px; }
+.subtitle { color: var(--sg-text-secondary); font-size: 13px; margin-top: 4px; }
 
 .site-card {
   position: relative;
-  background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border-soft);
+  border-radius: var(--sg-radius);
   padding: 14px 16px 12px;
   margin-bottom: 16px;
   overflow: hidden;
   transition: box-shadow .2s, transform .2s;
+  box-shadow: var(--ep-box-shadow-light);
 }
 .site-card::before {
   content: '';
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: var(--accent, #5b8def);
+  background: var(--accent, #6366f1);
 }
 .site-card:hover {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .08);
   transform: translateY(-1px);
 }
 
@@ -209,18 +205,18 @@ onMounted(reload)
   gap: 8px;
   padding-bottom: 10px;
   margin-bottom: 10px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--sg-border-soft);
 }
 .site-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent, #5b8def);
+  background: var(--accent, #6366f1);
 }
 .site-name {
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--sg-text-primary);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -228,8 +224,8 @@ onMounted(reload)
 }
 .site-count {
   font-size: 12px;
-  color: #909399;
-  background: #f4f4f5;
+  color: var(--sg-text-secondary);
+  background: var(--sg-aside-hover-bg);
   padding: 1px 8px;
   border-radius: 10px;
 }
@@ -242,7 +238,7 @@ onMounted(reload)
 
 .metric {
   padding: 10px 0;
-  border-bottom: 1px dashed #ebeef5;
+  border-bottom: 1px dashed var(--sg-border-soft);
 }
 .metric:last-child {
   border-bottom: none;
@@ -254,10 +250,11 @@ onMounted(reload)
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
+  gap: 6px;
 }
 .metric-name {
   font-size: 13px;
-  color: #606266;
+  color: var(--sg-text-secondary);
   font-weight: 500;
 }
 
@@ -271,33 +268,34 @@ onMounted(reload)
 .metric-value .num {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--sg-text-primary);
   line-height: 1;
   letter-spacing: -0.5px;
 }
 .metric-value .unit {
   font-size: 12px;
-  color: #909399;
+  color: var(--sg-text-secondary);
 }
 
 .meta {
   font-size: 12px;
-  color: #909399;
+  color: var(--sg-text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 .meta .key {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  background: #f4f4f5;
+  background: var(--sg-aside-hover-bg);
   padding: 1px 6px;
-  border-radius: 3px;
-  color: #606266;
+  border-radius: 4px;
+  color: var(--sg-text-primary);
 }
-.meta .dot { color: #c0c4cc; }
+.meta .dot { color: var(--sg-text-muted); }
 .meta .collector {
-  color: #606266;
+  color: var(--sg-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -307,10 +305,17 @@ onMounted(reload)
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .ts {
   font-size: 11px;
-  color: #c0c4cc;
+  color: var(--sg-text-muted);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
 }
 .actions :deep(.el-button + .el-button) {
   margin-left: 4px;

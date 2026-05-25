@@ -26,9 +26,11 @@ async function changePassword() {
 
 <template>
   <div>
-    <h2>Settings</h2>
+    <div class="page-bar">
+      <h2>Settings</h2>
+    </div>
     <el-card>
-      <h3>Change Password</h3>
+      <h3 class="card-title">Change Password</h3>
       <el-form label-width="160px" style="max-width: 480px">
         <el-form-item label="Current Password">
           <el-input v-model="form.old_password" type="password" show-password />
@@ -44,3 +46,7 @@ async function changePassword() {
     </el-card>
   </div>
 </template>
+
+<style scoped>
+.card-title { margin: 0 0 16px; font-size: 16px; font-weight: 600; color: var(--sg-text-primary); }
+</style>

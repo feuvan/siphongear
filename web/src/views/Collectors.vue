@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
+import ResponsiveTable, { type RTColumn } from '@/components/ResponsiveTable.vue'
 
 const router = useRouter()
 const rows = ref<any[]>([])
@@ -17,6 +18,16 @@ async function reload() {
 }
 
 const siteName = computed(() => (id: number) => sites.value.find(s => s.id === id)?.name || `#${id}`)
+
+const columns: RTColumn[] = [
+  { key: 'id', label: 'ID', width: 70, hideOnMobile: true },
+  { key: 'name', label: 'Name', primary: true },
+  { key: 'site', label: 'Site', slot: 'site', width: 180 },
+  { key: 'schedule', label: 'Schedule', slot: 'schedule', width: 220 },
+  { key: 'status', label: 'Status', slot: 'status', width: 140 },
+  { key: 'enabled', label: 'Enabled', slot: 'enabled', width: 110 },
+  { key: 'actions', label: 'Actions', slot: 'actions', width: 320 }
+]
 
 async function toggle(row: any) {
   await api.collectors.update(row.id, { ...row, enabled: !row.enabled })
@@ -48,46 +59,32 @@ onMounted(reload)
 
 <template>
   <div>
-    <div class="bar">
+    <div class="page-bar">
       <h2>Collectors</h2>
-      <el-button type="primary" @click="gotoNew">New Collector</el-button>
+      <div class="page-bar-actions">
+        <el-button type="primary" @click="gotoNew">New Collector</el-button>
+      </div>
     </div>
-    <el-table :data="rows" border v-loading="loading">
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="name" label="Name" />
-      <el-table-column label="Site" width="180">
-        <template #default="{ row }">{{ siteName(row.site_id) }}</template>
-      </el-table-column>
-      <el-table-column label="Schedule" width="220">
-        <template #default="{ row }">
-          <el-tag size="small">{{ row.schedule_type || 'none' }}</el-tag>
-          <span v-if="row.schedule_spec" style="margin-left:6px;">{{ row.schedule_spec }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Status" width="140">
-        <template #default="{ row }">
-          <el-tag :type="row.last_status === 'success' ? 'success' : row.last_status === 'failed' ? 'danger' : 'info'">
-            {{ row.last_status || '—' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="Enabled" width="110">
-        <template #default="{ row }">
-          <el-switch :model-value="row.enabled" @click="toggle(row)" />
-        </template>
-      </el-table-column>
-      <el-table-column label="Actions" width="320">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="trigger(row)">Run</el-button>
-          <el-button link @click="gotoEdit(row)">Edit</el-button>
-          <el-button link @click="gotoRuns(row)">Runs</el-button>
-          <el-button link type="danger" @click="remove(row)">Delete</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <ResponsiveTable :rows="rows" :columns="columns" :loading="loading" row-key="id">
+      <template #site="{ row }">{{ siteName(row.site_id) }}</template>
+      <template #schedule="{ row }">
+        <el-tag size="small">{{ row.schedule_type || 'none' }}</el-tag>
+        <span v-if="row.schedule_spec" style="margin-left:6px;">{{ row.schedule_spec }}</span>
+      </template>
+      <template #status="{ row }">
+        <el-tag :type="row.last_status === 'success' ? 'success' : row.last_status === 'failed' ? 'danger' : 'info'">
+          {{ row.last_status || '—' }}
+        </el-tag>
+      </template>
+      <template #enabled="{ row }">
+        <el-switch :model-value="row.enabled" @click="toggle(row)" />
+      </template>
+      <template #actions="{ row }">
+        <el-button link type="primary" @click="trigger(row)">Run</el-button>
+        <el-button link @click="gotoEdit(row)">Edit</el-button>
+        <el-button link @click="gotoRuns(row)">Runs</el-button>
+        <el-button link type="danger" @click="remove(row)">Delete</el-button>
+      </template>
+    </ResponsiveTable>
   </div>
 </template>
-
-<style scoped>
-.bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-</style>

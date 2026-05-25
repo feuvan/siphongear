@@ -21,9 +21,11 @@ onMounted(load)
 
 <template>
   <div v-if="run">
-    <div class="bar">
+    <div class="page-bar">
       <h2>Run #{{ run.id }}</h2>
-      <el-button @click="router.back()">Back</el-button>
+      <div class="page-bar-actions">
+        <el-button @click="router.back()">Back</el-button>
+      </div>
     </div>
 
     <el-descriptions border>
@@ -50,7 +52,14 @@ onMounted(load)
 </template>
 
 <style scoped>
-.bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.snippet { background: #f7f9fc; padding: 8px; border-radius: 4px; max-height: 240px; overflow: auto; font-size: 12px; }
-.err { color: #c0392b; font-weight: 500; }
+.snippet {
+  background: var(--sg-aside-hover-bg);
+  color: var(--sg-text-primary);
+  padding: 8px;
+  border-radius: 6px;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+}
+.err { color: var(--el-color-danger); font-weight: 500; }
 </style>

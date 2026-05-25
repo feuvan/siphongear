@@ -218,9 +218,9 @@ onMounted(load)
 
 <template>
   <div>
-    <div class="bar">
+    <div class="page-bar">
       <h2>{{ collector.id ? `Edit Collector #${collector.id}` : 'New Collector' }}</h2>
-      <div>
+      <div class="page-bar-actions">
         <el-button @click="templateDialog = true">From Template</el-button>
         <el-button @click="dryRun" :disabled="!collector.id">Dry Run</el-button>
         <el-button type="primary" @click="saveWithIndicators">Save</el-button>
@@ -323,9 +323,16 @@ onMounted(load)
 </template>
 
 <style scoped>
-.bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.pipeline-toolbar { margin-bottom: 12px; display: flex; align-items: center; }
-.step-card { border: 1px solid #eaecef; border-radius: 6px; padding: 12px; margin-bottom: 10px; position: relative; }
+.pipeline-toolbar { margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.step-card {
+  border: 1px solid var(--sg-border-soft);
+  background: var(--sg-bg-card);
+  border-radius: var(--sg-radius);
+  padding: 12px;
+  margin-bottom: 12px;
+  position: relative;
+  box-shadow: var(--ep-box-shadow-light);
+}
 .step-card::after {
   content: '';
   position: absolute;
@@ -335,12 +342,26 @@ onMounted(load)
   height: 0;
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 8px solid #c0c4cc;
+  border-top: 8px solid var(--sg-border);
   transform: translateX(-50%);
 }
 .step-card:last-child::after { display: none; }
-.step-head { display: flex; align-items: center; }
-.stage-badge { color: #fff; padding: 2px 8px; font-size: 11px; border-radius: 3px; font-weight: 500; letter-spacing: 0.5px; }
+.step-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.stage-badge { color: #fff; padding: 3px 10px; font-size: 11px; border-radius: 4px; font-weight: 500; letter-spacing: 0.5px; }
 .spacer { flex: 1; }
-.step-desc { color: #888; font-size: 12px; margin: 6px 0 8px; }
+.step-desc { color: var(--sg-text-secondary); font-size: 12px; margin: 6px 0 8px; }
+@media (max-width: 768px) {
+  .step-head :deep(.el-select),
+  .step-head :deep(.el-input) {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+  .step-head :deep(.el-button-group) {
+    width: 100%;
+    display: flex;
+  }
+  .step-head :deep(.el-button-group .el-button) {
+    flex: 1;
+  }
+}
 </style>

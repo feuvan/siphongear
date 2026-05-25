@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
+import ResponsiveTable, { type RTColumn } from '@/components/ResponsiveTable.vue'
 
 const rows = ref<any[]>([])
 const sites = ref<any[]>([])
@@ -13,6 +14,15 @@ async function reload() {
 }
 
 const siteName = computed(() => (id: number) => sites.value.find(s => s.id === id)?.name || `#${id}`)
+
+const columns: RTColumn[] = [
+  { key: 'id', label: 'ID', width: 80, hideOnMobile: true },
+  { key: 'name', label: 'Name', primary: true },
+  { key: 'site', label: 'Site', slot: 'site', width: 180 },
+  { key: 'type', label: 'Type', width: 120 },
+  { key: 'updated', label: 'Updated', slot: 'updated', width: 200 },
+  { key: 'actions', label: 'Actions', slot: 'actions', width: 220 }
+]
 
 function openCreate() {
   Object.assign(form, { id: 0, site_id: sites.value[0]?.id || 0, name: '', type: 'token', payload_text: '{}' })
@@ -49,27 +59,20 @@ onMounted(reload)
 
 <template>
   <div>
-    <div class="bar">
+    <div class="page-bar">
       <h2>Credentials</h2>
-      <el-button type="primary" @click="openCreate">New Credential</el-button>
+      <div class="page-bar-actions">
+        <el-button type="primary" @click="openCreate">New Credential</el-button>
+      </div>
     </div>
-    <el-table :data="rows" border>
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="Name" />
-      <el-table-column label="Site" width="180">
-        <template #default="{ row }">{{ siteName(row.site_id) }}</template>
-      </el-table-column>
-      <el-table-column prop="type" label="Type" width="120" />
-      <el-table-column label="Updated" width="200">
-        <template #default="{ row }">{{ new Date(row.updated_at).toLocaleString() }}</template>
-      </el-table-column>
-      <el-table-column label="Actions" width="220">
-        <template #default="{ row }">
-          <el-button link @click="openEdit(row)">Edit / Replace</el-button>
-          <el-button link type="danger" @click="remove(row)">Delete</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <ResponsiveTable :rows="rows" :columns="columns" row-key="id">
+      <template #site="{ row }">{{ siteName(row.site_id) }}</template>
+      <template #updated="{ row }">{{ new Date(row.updated_at).toLocaleString() }}</template>
+      <template #actions="{ row }">
+        <el-button link @click="openEdit(row)">Edit / Replace</el-button>
+        <el-button link type="danger" @click="remove(row)">Delete</el-button>
+      </template>
+    </ResponsiveTable>
 
     <el-dialog v-model="dialog" :title="form.id ? 'Edit Credential' : 'New Credential'" width="640px">
       <el-form label-width="120px">
@@ -101,7 +104,3 @@ onMounted(reload)
     </el-dialog>
   </div>
 </template>
-
-<style scoped>
-.bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-</style>

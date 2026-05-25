@@ -2,11 +2,20 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
+import ResponsiveTable, { type RTColumn } from '@/components/ResponsiveTable.vue'
 
 const rows = ref<any[]>([])
 const dialog = ref(false)
 const editing = ref<any>(null)
 const form = reactive({ id: 0, name: '', base_url: '', tags: '', notes: '' })
+
+const columns: RTColumn[] = [
+  { key: 'id', label: 'ID', width: 80, hideOnMobile: true },
+  { key: 'name', label: 'Name', primary: true },
+  { key: 'base_url', label: 'Base URL' },
+  { key: 'tags', label: 'Tags', width: 200 },
+  { key: 'actions', label: 'Actions', slot: 'actions', width: 160 }
+]
 
 async function reload() { rows.value = await api.sites.list() }
 
@@ -44,22 +53,18 @@ onMounted(reload)
 
 <template>
   <div>
-    <div class="bar">
+    <div class="page-bar">
       <h2>Sites</h2>
-      <el-button type="primary" @click="openCreate">New Site</el-button>
+      <div class="page-bar-actions">
+        <el-button type="primary" @click="openCreate">New Site</el-button>
+      </div>
     </div>
-    <el-table :data="rows" border>
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="Name" />
-      <el-table-column prop="base_url" label="Base URL" />
-      <el-table-column prop="tags" label="Tags" width="200" />
-      <el-table-column label="Actions" width="160">
-        <template #default="{ row }">
-          <el-button link @click="openEdit(row)">Edit</el-button>
-          <el-button link type="danger" @click="remove(row)">Delete</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <ResponsiveTable :rows="rows" :columns="columns" row-key="id">
+      <template #actions="{ row }">
+        <el-button link @click="openEdit(row)">Edit</el-button>
+        <el-button link type="danger" @click="remove(row)">Delete</el-button>
+      </template>
+    </ResponsiveTable>
 
     <el-dialog v-model="dialog" :title="form.id ? 'Edit Site' : 'New Site'" width="520px">
       <el-form label-width="100px">
@@ -75,7 +80,3 @@ onMounted(reload)
     </el-dialog>
   </div>
 </template>
-
-<style scoped>
-.bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-</style>
