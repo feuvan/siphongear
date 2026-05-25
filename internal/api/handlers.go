@@ -516,6 +516,7 @@ func (s *Server) handleDashboard(c *gin.Context) {
 	var indicators []models.Indicator
 	if err := s.DB.
 		Joins("JOIN collectors ON collectors.id = indicators.collector_id AND collectors.deleted_at IS NULL").
+		Where("indicators.hidden = ?", false).
 		Order("indicators.collector_id, indicators.id").
 		Find(&indicators).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})

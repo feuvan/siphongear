@@ -61,6 +61,7 @@ type Indicator struct {
 	Type        string         `gorm:"size:16" json:"type"` // number|string|bool|json
 	Unit        string         `gorm:"size:32" json:"unit"`
 	Display     string         `gorm:"size:16" json:"display"` // gauge|line|table
+	Hidden      bool           `gorm:"index" json:"hidden"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`

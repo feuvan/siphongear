@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
 
@@ -8,7 +8,7 @@ const emit = defineEmits<{ (e: 'update:indicators', v: any[]): void }>()
 
 const rows = ref<any[]>([])
 const dialog = ref(false)
-const form = reactive<any>({ id: 0, key: '', name: '', type: 'number', unit: '', display: 'gauge' })
+const form = reactive<any>({ id: 0, key: '', name: '', type: 'number', unit: '', display: 'gauge', hidden: false })
 
 async function reload() {
   rows.value = await api.indicators.list(props.collectorId)
@@ -16,12 +16,12 @@ async function reload() {
 }
 
 function openCreate() {
-  Object.assign(form, { id: 0, key: '', name: '', type: 'number', unit: '', display: 'gauge' })
+  Object.assign(form, { id: 0, key: '', name: '', type: 'number', unit: '', display: 'gauge', hidden: false })
   dialog.value = true
 }
 
 function openEdit(row: any) {
-  Object.assign(form, row)
+  Object.assign(form, { hidden: false }, row)
   dialog.value = true
 }
 
@@ -39,7 +39,20 @@ async function remove(row: any) {
   await reload()
 }
 
-onMounted(() => { rows.value = props.indicators || [] })
+async function toggleVisible(row: any, visible: boolean) {
+  try {
+    await api.indicators.update(row.id, { ...row, hidden: !visible })
+    await reload()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.error || 'update failed')
+  }
+}
+
+watch(
+  () => props.indicators,
+  v => { rows.value = Array.isArray(v) ? [...v] : [] },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -57,6 +70,14 @@ onMounted(() => { rows.value = props.indicators || [] })
       <el-table-column prop="type" label="Type" width="120" />
       <el-table-column prop="unit" label="Unit" width="100" />
       <el-table-column prop="display" label="Display" width="120" />
+      <el-table-column label="Dashboard" width="110">
+        <template #default="{ row }">
+          <el-switch
+            :model-value="!row.hidden"
+            @change="(v: boolean) => toggleVisible(row, v)"
+          />
+        </template>
+      </el-table-column>
       <el-table-column label="Actions" width="180">
         <template #default="{ row }">
           <el-button link @click="openEdit(row)">Edit</el-button>
@@ -84,6 +105,9 @@ onMounted(() => { rows.value = props.indicators || [] })
             <el-option label="line" value="line" />
             <el-option label="table" value="table" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="Show on Dashboard">
+          <el-switch :model-value="!form.hidden" @change="(v: boolean) => form.hidden = !v" />
         </el-form-item>
       </el-form>
       <template #footer>
