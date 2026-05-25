@@ -2,6 +2,8 @@
 
 A configuration-driven web data collector with a pluggable `Input → Fetch → Transform → Parse → Extract` pipeline. Originally built to track recharge balances across multiple sites, generalized into a tool for any periodic web collection task. Single Go binary with embedded Vue 3 + Element Plus UI.
 
+![SiphonGear Dashboard](docs/screenshot-dashboard.png)
+
 ## 中文简介
 
 SiphonGear 是一个**配置驱动的通用采集与指标平台**。最初目标是定时查询多个网站的充值余额，已泛化为可扩展的 Web 爬虫/采集工具：
