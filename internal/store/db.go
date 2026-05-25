@@ -49,3 +49,22 @@ func Migrate(db *gorm.DB) error {
 		&models.CollectorTemplate{},
 	)
 }
+
+// PruneOrphans removes rows whose owning collector/indicator no longer exists
+// (or has been soft-deleted). Idempotent; safe to run on every startup.
+func PruneOrphans(db *gorm.DB) error {
+	stmts := []string{
+		`DELETE FROM indicators WHERE collector_id NOT IN (
+			SELECT id FROM collectors WHERE deleted_at IS NULL)`,
+		`DELETE FROM data_points WHERE indicator_id NOT IN (SELECT id FROM indicators)`,
+		`DELETE FROM step_logs WHERE run_id NOT IN (SELECT id FROM runs)`,
+		`DELETE FROM runs WHERE collector_id NOT IN (
+			SELECT id FROM collectors WHERE deleted_at IS NULL)`,
+	}
+	for _, s := range stmts {
+		if err := db.Exec(s).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}

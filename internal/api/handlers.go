@@ -7,6 +7,7 @@ import (
 
 	"github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"github.com/sunshow/siphongear/internal/auth"
 	"github.com/sunshow/siphongear/internal/pipeline"
@@ -317,7 +318,25 @@ func (s *Server) updateCollector(c *gin.Context) {
 }
 
 func (s *Server) deleteCollector(c *gin.Context) {
-	if err := s.DB.Delete(&models.Collector{}, c.Param("id")).Error; err != nil {
+	id := c.Param("id")
+	err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("run_id IN (?)",
+			tx.Model(&models.Run{}).Select("id").Where("collector_id = ?", id),
+		).Delete(&models.StepLog{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("collector_id = ?", id).Delete(&models.Run{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("collector_id = ?", id).Delete(&models.DataPoint{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("collector_id = ?", id).Delete(&models.Indicator{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.Collector{}, id).Error
+	})
+	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
@@ -495,7 +514,10 @@ type dashboardCard struct {
 
 func (s *Server) handleDashboard(c *gin.Context) {
 	var indicators []models.Indicator
-	if err := s.DB.Order("collector_id, id").Find(&indicators).Error; err != nil {
+	if err := s.DB.
+		Joins("JOIN collectors ON collectors.id = indicators.collector_id AND collectors.deleted_at IS NULL").
+		Order("indicators.collector_id, indicators.id").
+		Find(&indicators).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}

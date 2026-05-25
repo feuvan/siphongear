@@ -60,6 +60,9 @@ func main() {
 		logger.Error().Err(err).Msg("migrate db")
 		os.Exit(1)
 	}
+	if err := store.PruneOrphans(db); err != nil {
+		logger.Warn().Err(err).Msg("prune orphans")
+	}
 
 	// Bootstrap initial admin user if none.
 	{
