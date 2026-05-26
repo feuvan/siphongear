@@ -24,6 +24,10 @@ interface Card {
   value_str: string | null
   value_json: string | null
   ts: string | null
+  prev_value_num: number | null
+  prev_value_str: string | null
+  prev_value_json: string | null
+  prev_ts: string | null
   last_status: string
 }
 
@@ -88,13 +92,57 @@ async function refreshAll() {
 
 function formatValue(c: Card): string {
   if (c.value_num !== null && c.value_num !== undefined) {
-    const n = c.value_num
-    if (Number.isInteger(n)) return String(n)
-    return n.toFixed(Math.min(4, Math.max(0, 6 - String(Math.trunc(n)).length)))
+    return formatNum(c.value_num)
   }
   if (c.value_str) return c.value_str
   if (c.value_json) return c.value_json
   return '—'
+}
+
+function formatPrev(c: Card): string {
+  if (c.prev_value_num !== null && c.prev_value_num !== undefined) {
+    return formatNum(c.prev_value_num)
+  }
+  if (c.prev_value_str) return c.prev_value_str
+  if (c.prev_value_json) return c.prev_value_json
+  return '—'
+}
+
+function formatNum(n: number): string {
+  if (Number.isInteger(n)) return String(n)
+  return n.toFixed(Math.min(4, Math.max(0, 6 - String(Math.trunc(n)).length)))
+}
+
+function hasPrev(c: Card): boolean {
+  return c.prev_value_num !== null && c.prev_value_num !== undefined
+    || c.prev_value_str !== null && c.prev_value_str !== undefined
+    || c.prev_value_json !== null && c.prev_value_json !== undefined
+}
+
+interface Delta {
+  abs: number
+  pct: number | null
+  dir: 'up' | 'down' | 'flat'
+}
+
+function delta(c: Card): Delta | null {
+  const cur = c.value_num
+  const prev = c.prev_value_num
+  if (cur === null || cur === undefined) return null
+  if (prev === null || prev === undefined) return null
+  const abs = cur - prev
+  const dir: 'up' | 'down' | 'flat' = abs > 0 ? 'up' : abs < 0 ? 'down' : 'flat'
+  const pct = prev !== 0 ? (abs / Math.abs(prev)) * 100 : null
+  return { abs, pct, dir }
+}
+
+function formatDelta(d: Delta): string {
+  if (d.dir === 'flat') return '0'
+  const sign = d.abs > 0 ? '+' : ''
+  const absStr = `${sign}${formatNum(d.abs)}`
+  if (d.pct === null) return absStr
+  const pctSign = d.pct > 0 ? '+' : ''
+  return `${absStr} (${pctSign}${d.pct.toFixed(2)}%)`
 }
 
 function relativeTime(iso: string | null): string {
@@ -237,8 +285,18 @@ onBeforeUnmount(stopTimer)
               </div>
 
               <div class="metric-value">
-                <span class="num">{{ formatValue(c) }}</span>
-                <span v-if="c.unit" class="unit">{{ c.unit }}</span>
+                <div class="metric-value-main">
+                  <span class="num">{{ formatValue(c) }}</span>
+                  <span v-if="c.unit" class="unit">{{ c.unit }}</span>
+                </div>
+                <div v-if="hasPrev(c)" class="metric-prev">
+                  <span class="prev-val">prev {{ formatPrev(c) }}<span v-if="c.unit" class="prev-unit"> {{ c.unit }}</span></span>
+                  <span
+                    v-if="delta(c)"
+                    class="delta"
+                    :class="delta(c)!.dir"
+                  >{{ formatDelta(delta(c)!) }}</span>
+                </div>
               </div>
 
               <div class="meta">
@@ -372,10 +430,17 @@ onBeforeUnmount(stopTimer)
 
 .metric-value {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 6px;
   min-height: 32px;
+}
+.metric-value-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 .metric-value .num {
   font-size: 24px;
@@ -387,6 +452,36 @@ onBeforeUnmount(stopTimer)
 .metric-value .unit {
   font-size: 12px;
   color: var(--sg-text-secondary);
+}
+.metric-prev {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: right;
+  color: var(--sg-text-secondary);
+  white-space: nowrap;
+}
+.metric-prev .prev-val {
+  color: var(--sg-text-secondary);
+}
+.metric-prev .prev-unit {
+  color: var(--sg-text-muted);
+}
+.metric-prev .delta {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.metric-prev .delta.up {
+  color: var(--el-color-success);
+}
+.metric-prev .delta.down {
+  color: var(--el-color-danger);
+}
+.metric-prev .delta.flat {
+  color: var(--sg-text-muted);
 }
 
 .meta {

@@ -510,6 +510,10 @@ type dashboardCard struct {
 	ValueStr      *string    `json:"value_str"`
 	ValueJSON     *string    `json:"value_json"`
 	Ts            *time.Time `json:"ts"`
+	PrevValueNum  *float64   `json:"prev_value_num"`
+	PrevValueStr  *string    `json:"prev_value_str"`
+	PrevValueJSON *string    `json:"prev_value_json"`
+	PrevTs        *time.Time `json:"prev_ts"`
 	LastStatus    string     `json:"last_status"`
 }
 
@@ -554,8 +558,8 @@ func (s *Server) handleDashboard(c *gin.Context) {
 	}
 	cards := make([]dashboardCard, 0, len(indicators))
 	for _, ind := range indicators {
-		var dp models.DataPoint
-		err := s.DB.Where("indicator_id = ?", ind.ID).Order("ts desc").First(&dp).Error
+		var dps []models.DataPoint
+		_ = s.DB.Where("indicator_id = ?", ind.ID).Order("ts desc").Limit(2).Find(&dps).Error
 		ci := collectorMap[ind.CollectorID]
 		si := siteMap[ci.SiteID]
 		card := dashboardCard{
@@ -572,12 +576,21 @@ func (s *Server) handleDashboard(c *gin.Context) {
 			Display:       ind.Display,
 			LastStatus:    ci.LastStatus,
 		}
-		if err == nil {
-			card.ValueNum = dp.ValueNum
-			card.ValueStr = dp.ValueStr
-			card.ValueJSON = dp.ValueJSON
-			t := dp.Ts
+		if len(dps) >= 1 {
+			cur := dps[0]
+			card.ValueNum = cur.ValueNum
+			card.ValueStr = cur.ValueStr
+			card.ValueJSON = cur.ValueJSON
+			t := cur.Ts
 			card.Ts = &t
+		}
+		if len(dps) >= 2 {
+			prev := dps[1]
+			card.PrevValueNum = prev.ValueNum
+			card.PrevValueStr = prev.ValueStr
+			card.PrevValueJSON = prev.ValueJSON
+			pt := prev.Ts
+			card.PrevTs = &pt
 		}
 		cards = append(cards, card)
 	}
