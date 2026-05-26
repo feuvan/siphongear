@@ -78,6 +78,12 @@ func NewRouter(s *Server) *gin.Engine {
 
 	authed.GET("/runs/:id", s.getRun)
 
+	authed.GET("/rules", s.listRules)
+	authed.POST("/rules", s.createRule)
+	authed.GET("/rules/:id", s.getRule)
+	authed.PUT("/rules/:id", s.updateRule)
+	authed.DELETE("/rules/:id", s.deleteRule)
+
 	authed.GET("/dashboard", s.handleDashboard)
 
 	if s.Static != nil {

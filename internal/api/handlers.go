@@ -12,6 +12,7 @@ import (
 
 	"github.com/sunshow/siphongear/internal/auth"
 	"github.com/sunshow/siphongear/internal/pipeline"
+	"github.com/sunshow/siphongear/internal/rules"
 	"github.com/sunshow/siphongear/internal/store/models"
 )
 
@@ -511,12 +512,20 @@ type dashboardCard struct {
 	ValueStr      *string    `json:"value_str"`
 	ValueJSON     *string    `json:"value_json"`
 	Ts            *time.Time `json:"ts"`
-	PrevValueNum  *float64   `json:"prev_value_num"`
-	PrevValueStr  *string    `json:"prev_value_str"`
-	PrevValueJSON *string    `json:"prev_value_json"`
-	PrevTs        *time.Time `json:"prev_ts"`
-	SiteTags      []string   `json:"site_tags"`
-	LastStatus    string     `json:"last_status"`
+	PrevValueNum  *float64     `json:"prev_value_num"`
+	PrevValueStr  *string      `json:"prev_value_str"`
+	PrevValueJSON *string      `json:"prev_value_json"`
+	PrevTs        *time.Time   `json:"prev_ts"`
+	SiteTags      []string     `json:"site_tags"`
+	MatchedRule   *matchedRule `json:"matched_rule,omitempty"`
+	LastStatus    string       `json:"last_status"`
+}
+
+type matchedRule struct {
+	ID       uint     `json:"id"`
+	Name     string   `json:"name"`
+	Severity string   `json:"severity"`
+	Actions  []string `json:"actions"`
 }
 
 func parseTags(s string) []string {
@@ -583,6 +592,42 @@ func (s *Server) handleDashboard(c *gin.Context) {
 			siteMap[x.ID] = siteInfo{Name: x.Name, BaseURL: x.BaseURL, Tags: parseTags(x.Tags)}
 		}
 	}
+
+	type ruleEntry struct {
+		row        models.ThresholdRule
+		conditions []rules.Condition
+		actions    []rules.Action
+		actionTags []string
+		tagFilter  []string
+	}
+	var rulesByKey map[string][]ruleEntry
+	{
+		var rs []models.ThresholdRule
+		_ = s.DB.Where("enabled = ?", true).Order("priority asc, id asc").Find(&rs).Error
+		rulesByKey = make(map[string][]ruleEntry, len(rs))
+		for _, r := range rs {
+			conds, err := rules.ParseConditions(r.ConditionJSON)
+			if err != nil {
+				continue
+			}
+			acts, err := rules.ParseActions(r.ActionJSON)
+			if err != nil {
+				continue
+			}
+			actionTags := make([]string, 0, len(acts))
+			for _, a := range acts {
+				actionTags = append(actionTags, a.Type)
+			}
+			rulesByKey[r.IndicatorKey] = append(rulesByKey[r.IndicatorKey], ruleEntry{
+				row:        r,
+				conditions: conds,
+				actions:    acts,
+				actionTags: actionTags,
+				tagFilter:  rules.ParseTargetTags(r.TargetTags),
+			})
+		}
+	}
+
 	cards := make([]dashboardCard, 0, len(indicators))
 	for _, ind := range indicators {
 		var dps []models.DataPoint
@@ -619,6 +664,23 @@ func (s *Server) handleDashboard(c *gin.Context) {
 			card.PrevValueJSON = prev.ValueJSON
 			pt := prev.Ts
 			card.PrevTs = &pt
+		}
+		for _, re := range rulesByKey[ind.Key] {
+			if re.row.TargetType == rules.TargetTags {
+				if !rules.TagsIntersect(re.tagFilter, card.SiteTags) {
+					continue
+				}
+			}
+			if !rules.Evaluate(re.conditions, card.ValueNum) {
+				continue
+			}
+			card.MatchedRule = &matchedRule{
+				ID:       re.row.ID,
+				Name:     re.row.Name,
+				Severity: rules.SeverityWarning,
+				Actions:  re.actionTags,
+			}
+			break
 		}
 		cards = append(cards, card)
 	}

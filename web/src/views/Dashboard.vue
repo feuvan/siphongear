@@ -30,6 +30,7 @@ interface Card {
   prev_value_json: string | null
   prev_ts: string | null
   site_tags: string[] | null
+  matched_rule: { id: number; name: string; severity: string; actions: string[] } | null
   last_status: string
 }
 
@@ -409,8 +410,16 @@ onBeforeUnmount(stopTimer)
 
               <div class="metric-value">
                 <div class="metric-value-main">
-                  <span class="num">{{ formatValue(c) }}</span>
-                  <span v-if="c.unit" class="unit">{{ c.unit }}</span>
+                  <el-tooltip
+                    v-if="c.matched_rule"
+                    :content="`Rule: ${c.matched_rule.name}`"
+                    placement="top"
+                  >
+                    <span class="num is-warning">{{ formatValue(c) }}</span>
+                  </el-tooltip>
+                  <span v-else class="num">{{ formatValue(c) }}</span>
+                  <span v-if="c.unit" class="unit" :class="{ 'is-warning': !!c.matched_rule }">{{ c.unit }}</span>
+                  <el-icon v-if="c.matched_rule" class="warn-ico"><WarningFilled /></el-icon>
                 </div>
                 <div v-if="hasPrev(c)" class="metric-prev">
                   <span class="prev-val">prev {{ formatPrev(c) }}<span v-if="c.unit" class="prev-unit"> {{ c.unit }}</span></span>
@@ -599,9 +608,20 @@ onBeforeUnmount(stopTimer)
   line-height: 1;
   letter-spacing: -0.5px;
 }
+.metric-value .num.is-warning {
+  color: var(--el-color-danger);
+}
 .metric-value .unit {
   font-size: 12px;
   color: var(--sg-text-secondary);
+}
+.metric-value .unit.is-warning {
+  color: var(--el-color-danger);
+}
+.metric-value-main .warn-ico {
+  color: var(--el-color-danger);
+  font-size: 16px;
+  margin-left: 2px;
 }
 .metric-prev {
   display: flex;

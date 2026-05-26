@@ -109,3 +109,18 @@ type CollectorTemplate struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
+
+type ThresholdRule struct {
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	Name          string         `gorm:"size:128;index" json:"name"`
+	Enabled       bool           `gorm:"index" json:"enabled"`
+	Priority      int            `gorm:"index" json:"priority"`
+	IndicatorKey  string         `gorm:"size:64;index" json:"indicator_key"`
+	TargetType    string         `gorm:"size:16" json:"target_type"`
+	TargetTags    string         `gorm:"size:255" json:"target_tags"`
+	ConditionJSON string         `gorm:"type:text" json:"condition_json"`
+	ActionJSON    string         `gorm:"type:text" json:"action_json"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+}

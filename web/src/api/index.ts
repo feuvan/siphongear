@@ -66,5 +66,13 @@ export const api = {
 
   runs: {
     get(id: number) { return http.get(`/runs/${id}`).then(r => r.data) }
+  },
+
+  rules: {
+    list() { return http.get('/rules').then(r => r.data) },
+    get(id: number) { return http.get(`/rules/${id}`).then(r => r.data) },
+    create(b: any) { return http.post('/rules', b).then(r => r.data) },
+    update(id: number, b: any) { return http.put(`/rules/${id}`, b).then(r => r.data) },
+    remove(id: number) { return http.delete(`/rules/${id}`).then(r => r.data) }
   }
 }
