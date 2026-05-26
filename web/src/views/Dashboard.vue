@@ -6,6 +6,7 @@ import { api } from '@/api'
 
 const AUTO_KEY = 'dashboard.autoReload'
 const INT_KEY = 'dashboard.autoReloadInterval'
+const TAG_KEY = 'dashboard.tagFilter'
 const INTERVAL_OPTIONS = [10, 30, 60, 120, 300]
 
 interface Card {
@@ -28,6 +29,7 @@ interface Card {
   prev_value_str: string | null
   prev_value_json: string | null
   prev_ts: string | null
+  site_tags: string[] | null
   last_status: string
 }
 
@@ -37,7 +39,26 @@ const loading = ref(false)
 const refreshing = ref<Record<number, boolean>>({})
 const autoReload = ref(localStorage.getItem(AUTO_KEY) !== '0')
 const intervalSec = ref(Number(localStorage.getItem(INT_KEY)) || 30)
+const selectedTags = ref<Set<string>>(loadTagFilter())
 let timer: number | null = null
+
+function loadTagFilter(): Set<string> {
+  try {
+    const raw = localStorage.getItem(TAG_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) return new Set(arr.filter(x => typeof x === 'string'))
+  } catch {}
+  return new Set()
+}
+
+function persistTagFilter() {
+  if (selectedTags.value.size === 0) {
+    localStorage.removeItem(TAG_KEY)
+  } else {
+    localStorage.setItem(TAG_KEY, JSON.stringify([...selectedTags.value]))
+  }
+}
 
 function stopTimer() {
   if (timer !== null) {
@@ -70,7 +91,7 @@ async function refreshAll() {
   if (loading.value) return
   loading.value = true
   try {
-    const ids = Array.from(new Set(cards.value.map(c => c.collector_id))).filter(Boolean)
+    const ids = Array.from(new Set(filteredCards.value.map(c => c.collector_id))).filter(Boolean)
     if (!ids.length) {
       cards.value = await api.dashboard()
       return
@@ -192,9 +213,44 @@ function gotoEdit(card: Card) {
   router.push({ name: 'collector-edit', params: { id: card.collector_id } })
 }
 
+const allTags = computed<string[]>(() => {
+  const set = new Set<string>()
+  for (const c of cards.value) {
+    if (!c.site_tags) continue
+    for (const t of c.site_tags) set.add(t)
+  }
+  return [...set].sort((a, b) => a.localeCompare(b))
+})
+
+function cardMatchesTags(c: Card): boolean {
+  if (selectedTags.value.size === 0) return true
+  const tags = c.site_tags
+  if (!tags || !tags.length) return false
+  for (const t of tags) {
+    if (selectedTags.value.has(t)) return true
+  }
+  return false
+}
+
+function toggleTag(t: string) {
+  const next = new Set(selectedTags.value)
+  if (next.has(t)) next.delete(t)
+  else next.add(t)
+  selectedTags.value = next
+  persistTagFilter()
+}
+
+function clearTags() {
+  if (selectedTags.value.size === 0) return
+  selectedTags.value = new Set()
+  persistTagFilter()
+}
+
+const filteredCards = computed(() => cards.value.filter(cardMatchesTags))
+
 const groupedBySite = computed(() => {
   const groups: Record<string, { siteId: number; siteName: string; baseUrl: string; cards: Card[] }> = {}
-  for (const c of cards.value) {
+  for (const c of filteredCards.value) {
     const key = c.site_name || `Site #${c.site_id || 0}`
     if (!groups[key]) groups[key] = { siteId: c.site_id, siteName: key, baseUrl: c.site_base_url || '', cards: [] }
     else if (!groups[key].baseUrl && c.site_base_url) groups[key].baseUrl = c.site_base_url
@@ -203,10 +259,36 @@ const groupedBySite = computed(() => {
   return Object.values(groups).sort((a, b) => a.siteName.localeCompare(b.siteName))
 })
 
+const totalSiteCount = computed(() => {
+  const ids = new Set<number | string>()
+  for (const c of cards.value) {
+    ids.add(c.site_name || `Site #${c.site_id || 0}`)
+  }
+  return ids.size
+})
+
+const filterActive = computed(() => selectedTags.value.size > 0)
+
 onMounted(async () => {
   await reload()
+  pruneSelectedTags()
   startTimer()
 })
+
+function pruneSelectedTags() {
+  if (selectedTags.value.size === 0) return
+  const known = new Set(allTags.value)
+  const next = new Set<string>()
+  let changed = false
+  for (const t of selectedTags.value) {
+    if (known.has(t)) next.add(t)
+    else changed = true
+  }
+  if (changed) {
+    selectedTags.value = next
+    persistTagFilter()
+  }
+}
 
 watch(autoReload, v => {
   localStorage.setItem(AUTO_KEY, v ? '1' : '0')
@@ -218,6 +300,8 @@ watch(intervalSec, v => {
   startTimer()
 })
 
+watch(cards, () => pruneSelectedTags(), { deep: false })
+
 onBeforeUnmount(stopTimer)
 </script>
 
@@ -226,7 +310,14 @@ onBeforeUnmount(stopTimer)
     <div class="page-bar">
       <div>
         <h2>Dashboard</h2>
-        <div class="subtitle">{{ cards.length }} indicator(s) across {{ groupedBySite.length }} site(s)</div>
+        <div class="subtitle">
+          <template v-if="filterActive">
+            {{ filteredCards.length }} of {{ cards.length }} indicator(s) across {{ groupedBySite.length }} of {{ totalSiteCount }} site(s)
+          </template>
+          <template v-else>
+            {{ cards.length }} indicator(s) across {{ groupedBySite.length }} site(s)
+          </template>
+        </div>
       </div>
       <div class="page-bar-actions">
         <div class="auto-reload">
@@ -251,7 +342,28 @@ onBeforeUnmount(stopTimer)
       </div>
     </div>
 
+    <div v-if="allTags.length" class="tag-filter">
+      <el-tag
+        :effect="filterActive ? 'plain' : 'dark'"
+        class="tag-filter-chip"
+        :class="{ active: !filterActive }"
+        @click="clearTags"
+      >All</el-tag>
+      <el-tag
+        v-for="t in allTags"
+        :key="t"
+        :effect="selectedTags.has(t) ? 'dark' : 'plain'"
+        class="tag-filter-chip"
+        :class="{ active: selectedTags.has(t) }"
+        @click="toggleTag(t)"
+      >{{ t }}</el-tag>
+    </div>
+
     <el-empty v-if="!cards.length && !loading" description="No indicators yet. Add some collectors first." />
+    <el-empty
+      v-else-if="filterActive && !filteredCards.length && !loading"
+      :description="`No sites match the selected tag(s).`"
+    />
 
     <el-row :gutter="16">
       <el-col
@@ -273,6 +385,17 @@ onBeforeUnmount(stopTimer)
             >{{ group.siteName }}</a>
             <span v-else class="site-name">{{ group.siteName }}</span>
             <span class="site-count">{{ group.cards.length }}</span>
+          </div>
+
+          <div v-if="group.cards[0]?.site_tags?.length" class="site-tags">
+            <el-tag
+              v-for="t in group.cards[0].site_tags || []"
+              :key="t"
+              size="small"
+              :effect="selectedTags.has(t) ? 'dark' : 'plain'"
+              class="site-tag-chip"
+              @click.stop="toggleTag(t)"
+            >{{ t }}</el-tag>
           </div>
 
           <div class="metrics">
@@ -336,6 +459,33 @@ onBeforeUnmount(stopTimer)
 .auto-reload .lbl {
   font-size: 12px;
   color: var(--sg-text-secondary);
+}
+
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0 14px;
+  align-items: center;
+}
+.tag-filter-chip {
+  cursor: pointer;
+  user-select: none;
+  transition: transform .12s;
+}
+.tag-filter-chip:hover {
+  transform: translateY(-1px);
+}
+
+.site-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -4px 0 8px;
+}
+.site-tag-chip {
+  cursor: pointer;
+  user-select: none;
 }
 .site-card {
   position: relative;

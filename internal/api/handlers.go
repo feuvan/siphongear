@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -514,7 +515,32 @@ type dashboardCard struct {
 	PrevValueStr  *string    `json:"prev_value_str"`
 	PrevValueJSON *string    `json:"prev_value_json"`
 	PrevTs        *time.Time `json:"prev_ts"`
+	SiteTags      []string   `json:"site_tags"`
 	LastStatus    string     `json:"last_status"`
+}
+
+func parseTags(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, p := range parts {
+		t := strings.TrimSpace(p)
+		if t == "" {
+			continue
+		}
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (s *Server) handleDashboard(c *gin.Context) {
@@ -547,13 +573,14 @@ func (s *Server) handleDashboard(c *gin.Context) {
 	type siteInfo struct {
 		Name    string
 		BaseURL string
+		Tags    []string
 	}
 	siteMap := map[uint]siteInfo{}
 	{
 		var ss []models.Site
 		_ = s.DB.Find(&ss).Error
 		for _, x := range ss {
-			siteMap[x.ID] = siteInfo{Name: x.Name, BaseURL: x.BaseURL}
+			siteMap[x.ID] = siteInfo{Name: x.Name, BaseURL: x.BaseURL, Tags: parseTags(x.Tags)}
 		}
 	}
 	cards := make([]dashboardCard, 0, len(indicators))
@@ -574,6 +601,7 @@ func (s *Server) handleDashboard(c *gin.Context) {
 			Type:          ind.Type,
 			Unit:          ind.Unit,
 			Display:       ind.Display,
+			SiteTags:      si.Tags,
 			LastStatus:    ci.LastStatus,
 		}
 		if len(dps) >= 1 {
