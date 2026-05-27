@@ -10,19 +10,21 @@ import (
 
 	"github.com/sunshow/siphongear/internal/auth"
 	"github.com/sunshow/siphongear/internal/crypto"
+	"github.com/sunshow/siphongear/internal/notify"
 	"github.com/sunshow/siphongear/internal/runner"
 	"github.com/sunshow/siphongear/internal/scheduler"
 	"github.com/sunshow/siphongear/internal/templates"
 )
 
 type Server struct {
-	DB        *gorm.DB
-	JWT       *auth.JWT
-	Cipher    *crypto.Cipher
-	Runner    *runner.Runner
-	Scheduler *scheduler.Scheduler
-	TplStore  *templates.Store
-	Static    fs.FS // embedded web/dist
+	DB               *gorm.DB
+	JWT              *auth.JWT
+	Cipher           *crypto.Cipher
+	Runner           *runner.Runner
+	Scheduler        *scheduler.Scheduler
+	TplStore         *templates.Store
+	NotifyDispatcher *notify.Dispatcher
+	Static           fs.FS // embedded web/dist
 }
 
 func NewRouter(s *Server) *gin.Engine {
@@ -83,6 +85,15 @@ func NewRouter(s *Server) *gin.Engine {
 	authed.GET("/rules/:id", s.getRule)
 	authed.PUT("/rules/:id", s.updateRule)
 	authed.DELETE("/rules/:id", s.deleteRule)
+
+	authed.GET("/notify/types", s.handleListNotifyTypes)
+	authed.GET("/notify/channels", s.listNotifyChannels)
+	authed.POST("/notify/channels", s.createNotifyChannel)
+	authed.GET("/notify/channels/:id", s.getNotifyChannel)
+	authed.PUT("/notify/channels/:id", s.updateNotifyChannel)
+	authed.DELETE("/notify/channels/:id", s.deleteNotifyChannel)
+	authed.POST("/notify/channels/:id/test", s.testNotifyChannel)
+	authed.GET("/notify/logs", s.listNotifyLogs)
 
 	authed.GET("/dashboard", s.handleDashboard)
 

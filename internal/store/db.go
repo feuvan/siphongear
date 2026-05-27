@@ -48,6 +48,9 @@ func Migrate(db *gorm.DB) error {
 		&models.DataPoint{},
 		&models.CollectorTemplate{},
 		&models.ThresholdRule{},
+		&models.NotificationChannel{},
+		&models.NotificationLog{},
+		&models.RuleNotificationState{},
 	)
 }
 
@@ -61,6 +64,11 @@ func PruneOrphans(db *gorm.DB) error {
 		`DELETE FROM step_logs WHERE run_id NOT IN (SELECT id FROM runs)`,
 		`DELETE FROM runs WHERE collector_id NOT IN (
 			SELECT id FROM collectors WHERE deleted_at IS NULL)`,
+		`DELETE FROM rule_notification_states WHERE indicator_id NOT IN (SELECT id FROM indicators)`,
+		`DELETE FROM rule_notification_states WHERE rule_id NOT IN (
+			SELECT id FROM threshold_rules WHERE deleted_at IS NULL)`,
+		`DELETE FROM notification_logs WHERE channel_id NOT IN (
+			SELECT id FROM notification_channels WHERE deleted_at IS NULL)`,
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {

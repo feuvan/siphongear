@@ -74,5 +74,20 @@ export const api = {
     create(b: any) { return http.post('/rules', b).then(r => r.data) },
     update(id: number, b: any) { return http.put(`/rules/${id}`, b).then(r => r.data) },
     remove(id: number) { return http.delete(`/rules/${id}`).then(r => r.data) }
+  },
+
+  notify: {
+    types() { return http.get('/notify/types').then(r => r.data) },
+    channels: {
+      list(type?: string) {
+        return http.get('/notify/channels', { params: type ? { type } : {} }).then(r => r.data)
+      },
+      get(id: number) { return http.get(`/notify/channels/${id}`).then(r => r.data) },
+      create(b: any) { return http.post('/notify/channels', b).then(r => r.data) },
+      update(id: number, b: any) { return http.put(`/notify/channels/${id}`, b).then(r => r.data) },
+      remove(id: number) { return http.delete(`/notify/channels/${id}`).then(r => r.data) },
+      test(id: number, b: any = {}) { return http.post(`/notify/channels/${id}/test`, b).then(r => r.data) }
+    },
+    logs(params: any = {}) { return http.get('/notify/logs', { params }).then(r => r.data) }
   }
 }

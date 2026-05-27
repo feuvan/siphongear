@@ -25,6 +25,8 @@ interface RuleRow {
   target_tags_arr: string[]
   conditions: Condition[]
   actions: Action[]
+  notify_channel_ids: string
+  notify_channel_ids_arr: number[]
   created_at?: string
   updated_at?: string
 }
@@ -46,6 +48,7 @@ const rows = ref<RuleRow[]>([])
 const dialog = ref(false)
 const indicatorKeys = ref<string[]>([])
 const allSiteTags = ref<string[]>([])
+const channels = ref<{ id: number; name: string; type: string; enabled: boolean }[]>([])
 const tagInput = ref('')
 const tagInputVisible = ref(false)
 const tagInputRef = ref<any>(null)
@@ -60,7 +63,8 @@ const form = reactive({
   target_tags: [] as string[],
   cond_op: 'lt' as Condition['op'],
   cond_value: 0,
-  action_type: 'indicator_color' as Action['type']
+  action_type: 'indicator_color' as Action['type'],
+  notify_channel_ids: [] as number[]
 })
 
 const columns: RTColumn[] = [
@@ -69,6 +73,7 @@ const columns: RTColumn[] = [
   { key: 'indicator_key', label: 'Indicator', width: 160 },
   { key: 'condition', label: 'Condition', width: 160, slot: 'condition' },
   { key: 'action', label: 'Action', width: 200, slot: 'action' },
+  { key: 'notify', label: 'Notify', width: 200, slot: 'notify' },
   { key: 'target', label: 'Target', width: 200, slot: 'target' },
   { key: 'priority', label: 'Prio', width: 80 },
   { key: 'enabled', label: 'On', width: 80, slot: 'enabled' },
@@ -100,6 +105,18 @@ function targetSummary(r: RuleRow): string {
   return `Tags: ${tags.join(', ')}`
 }
 
+const channelMap = computed(() => {
+  const m: Record<number, { name: string; enabled: boolean }> = {}
+  for (const c of channels.value) m[c.id] = { name: c.name, enabled: c.enabled }
+  return m
+})
+
+function notifySummary(r: RuleRow): string {
+  const ids = r.notify_channel_ids_arr || []
+  if (!ids.length) return '—'
+  return ids.map(id => channelMap.value[id]?.name || `#${id}`).join(', ')
+}
+
 async function reload() {
   rows.value = await api.rules.list()
 }
@@ -123,6 +140,9 @@ async function loadHints() {
     }
     allSiteTags.value = [...tags].sort()
   } catch {}
+  try {
+    channels.value = await api.notify.channels.list()
+  } catch {}
 }
 
 function openCreate() {
@@ -136,7 +156,8 @@ function openCreate() {
     target_tags: [],
     cond_op: 'lt',
     cond_value: 0,
-    action_type: 'indicator_color'
+    action_type: 'indicator_color',
+    notify_channel_ids: []
   })
   tagInput.value = ''
   tagInputVisible.value = false
@@ -156,7 +177,8 @@ function openEdit(row: RuleRow) {
     target_tags: [...(row.target_tags_arr || [])],
     cond_op: c?.op || 'lt',
     cond_value: c?.value ?? 0,
-    action_type: a?.type || 'indicator_color'
+    action_type: a?.type || 'indicator_color',
+    notify_channel_ids: [...(row.notify_channel_ids_arr || [])]
   })
   tagInput.value = ''
   tagInputVisible.value = false
@@ -222,7 +244,8 @@ async function save() {
     target_type: form.target_type,
     target_tags: form.target_type === 'tags' ? form.target_tags : [],
     conditions: [{ type: 'compare', op: form.cond_op, value: Number(form.cond_value) }],
-    actions: [{ type: form.action_type }]
+    actions: [{ type: form.action_type }],
+    notify_channel_ids: form.notify_channel_ids
   }
   try {
     if (form.id) await api.rules.update(form.id, body)
@@ -252,7 +275,8 @@ async function toggleEnabled(row: RuleRow) {
       target_type: fresh.target_type,
       target_tags: fresh.target_tags_arr || [],
       conditions: fresh.conditions || [],
-      actions: fresh.actions || []
+      actions: fresh.actions || [],
+      notify_channel_ids: fresh.notify_channel_ids_arr || []
     }
     await api.rules.update(row.id, body)
     await reload()
@@ -284,6 +308,19 @@ onMounted(async () => {
       </template>
       <template #condition="{ row }">{{ conditionSummary(row) }}</template>
       <template #action="{ row }">{{ actionSummary(row) }}</template>
+      <template #notify="{ row }">
+        <span v-if="!(row.notify_channel_ids_arr || []).length" class="tag-cell-empty">—</span>
+        <span v-else>
+          <el-tag
+            v-for="id in row.notify_channel_ids_arr || []"
+            :key="id"
+            size="small"
+            effect="plain"
+            class="tag-cell-item"
+            :type="channelMap[id]?.enabled === false ? 'info' : ''"
+          >{{ channelMap[id]?.name || `#${id}` }}</el-tag>
+        </span>
+      </template>
       <template #target="{ row }">
         <span v-if="row.target_type === 'all'">All sites</span>
         <span v-else>
@@ -358,6 +395,28 @@ onMounted(async () => {
               :label="a.label"
             />
           </el-select>
+        </el-form-item>
+
+        <el-form-item label="Notify">
+          <el-select
+            v-model="form.notify_channel_ids"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="Select notification channels"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="ch in channels"
+              :key="ch.id"
+              :value="ch.id"
+              :label="`${ch.name} (${ch.type})${ch.enabled ? '' : ' · disabled'}`"
+              :disabled="!ch.enabled"
+            />
+          </el-select>
+          <div class="form-hint" style="margin-left: 0; margin-top: 4px">
+            Notifications fire only on transition: OK→alert and alert→OK.
+          </div>
         </el-form-item>
 
         <el-form-item label="Target">

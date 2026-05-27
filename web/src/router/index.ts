@@ -10,6 +10,7 @@ import RunDetail from '@/views/RunDetail.vue'
 import Settings from '@/views/Settings.vue'
 import TemplateCenter from '@/views/TemplateCenter.vue'
 import Rules from '@/views/Rules.vue'
+import Notifications from '@/views/Notifications.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -26,6 +27,7 @@ export const router = createRouter({
     { path: '/runs/:id', name: 'run-detail', component: RunDetail, props: true },
     { path: '/templates', name: 'templates', component: TemplateCenter },
     { path: '/rules', name: 'rules', component: Rules },
+    { path: '/notifications', name: 'notifications', component: Notifications },
     { path: '/settings', name: 'settings', component: Settings }
   ]
 })

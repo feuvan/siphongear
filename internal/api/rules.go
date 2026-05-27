@@ -7,36 +7,40 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"
 
+	"github.com/sunshow/siphongear/internal/notify"
 	"github.com/sunshow/siphongear/internal/rules"
 	"github.com/sunshow/siphongear/internal/store/models"
 )
 
 type ruleIn struct {
-	Name         string            `json:"name"`
-	Enabled      bool              `json:"enabled"`
-	Priority     int               `json:"priority"`
-	IndicatorKey string            `json:"indicator_key"`
-	TargetType   string            `json:"target_type"`
-	TargetTags   []string          `json:"target_tags"`
-	Conditions   []rules.Condition `json:"conditions"`
-	Actions      []rules.Action    `json:"actions"`
+	Name             string            `json:"name"`
+	Enabled          bool              `json:"enabled"`
+	Priority         int               `json:"priority"`
+	IndicatorKey     string            `json:"indicator_key"`
+	TargetType       string            `json:"target_type"`
+	TargetTags       []string          `json:"target_tags"`
+	Conditions       []rules.Condition `json:"conditions"`
+	Actions          []rules.Action    `json:"actions"`
+	NotifyChannelIDs []uint            `json:"notify_channel_ids"`
 }
 
 type ruleOut struct {
 	models.ThresholdRule
-	TargetTagsArr []string          `json:"target_tags_arr"`
-	Conditions    []rules.Condition `json:"conditions"`
-	Actions       []rules.Action    `json:"actions"`
+	TargetTagsArr       []string          `json:"target_tags_arr"`
+	Conditions          []rules.Condition `json:"conditions"`
+	Actions             []rules.Action    `json:"actions"`
+	NotifyChannelIDsArr []uint            `json:"notify_channel_ids_arr"`
 }
 
 func toRuleOut(r models.ThresholdRule) ruleOut {
 	conds, _ := rules.ParseConditions(r.ConditionJSON)
 	acts, _ := rules.ParseActions(r.ActionJSON)
 	return ruleOut{
-		ThresholdRule: r,
-		TargetTagsArr: rules.ParseTargetTags(r.TargetTags),
-		Conditions:    conds,
-		Actions:       acts,
+		ThresholdRule:       r,
+		TargetTagsArr:       rules.ParseTargetTags(r.TargetTags),
+		Conditions:          conds,
+		Actions:             acts,
+		NotifyChannelIDsArr: notify.ParseChannelIDs(r.NotifyChannelIDs),
 	}
 }
 
@@ -105,6 +109,21 @@ func applyRuleIn(in *ruleIn, row *models.ThresholdRule) error {
 	row.TargetTags = tagsCSV
 	row.ConditionJSON = condJSON
 	row.ActionJSON = actJSON
+	row.NotifyChannelIDs = notify.FormatChannelIDs(in.NotifyChannelIDs)
+	return nil
+}
+
+func (s *Server) validateNotifyChannelIDs(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var count int64
+	if err := s.DB.Model(&models.NotificationChannel{}).Where("id IN ?", ids).Count(&count).Error; err != nil {
+		return err
+	}
+	if int(count) != len(ids) {
+		return errBadRequest("one or more notify_channel_ids do not exist")
+	}
 	return nil
 }
 
@@ -140,6 +159,10 @@ func (s *Server) createRule(c *gin.Context) {
 		writeRuleErr(c, err)
 		return
 	}
+	if err := s.validateNotifyChannelIDs(in.NotifyChannelIDs); err != nil {
+		writeRuleErr(c, err)
+		return
+	}
 	var row models.ThresholdRule
 	if err := applyRuleIn(&in, &row); err != nil {
 		writeRuleErr(c, err)
@@ -167,6 +190,10 @@ func (s *Server) updateRule(c *gin.Context) {
 		writeRuleErr(c, err)
 		return
 	}
+	if err := s.validateNotifyChannelIDs(in.NotifyChannelIDs); err != nil {
+		writeRuleErr(c, err)
+		return
+	}
 	if err := applyRuleIn(&in, &row); err != nil {
 		writeRuleErr(c, err)
 		return
@@ -179,7 +206,12 @@ func (s *Server) updateRule(c *gin.Context) {
 }
 
 func (s *Server) deleteRule(c *gin.Context) {
-	if err := s.DB.Delete(&models.ThresholdRule{}, c.Param("id")).Error; err != nil {
+	id := c.Param("id")
+	if err := s.DB.Delete(&models.ThresholdRule{}, id).Error; err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	if err := s.DB.Where("rule_id = ?", id).Delete(&models.RuleNotificationState{}).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}

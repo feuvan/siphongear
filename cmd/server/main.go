@@ -15,6 +15,8 @@ import (
 	"github.com/sunshow/siphongear/internal/config"
 	"github.com/sunshow/siphongear/internal/crypto"
 	"github.com/sunshow/siphongear/internal/events"
+	"github.com/sunshow/siphongear/internal/notify"
+	_ "github.com/sunshow/siphongear/internal/notify/builtin"
 	"github.com/sunshow/siphongear/internal/runner"
 	"github.com/sunshow/siphongear/internal/scheduler"
 	"github.com/sunshow/siphongear/internal/store"
@@ -89,6 +91,7 @@ func main() {
 	jwtSvc := auth.NewJWT(cfg.Auth.JWTSecret, cfg.Auth.TokenTTLHrs)
 	r := runner.New(db, cipher, bus, cfg.Runner.MaxConcurrency)
 	sch := scheduler.New(db, r, bus)
+	disp := notify.NewDispatcher(db, cipher, bus)
 
 	rootCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -96,6 +99,7 @@ func main() {
 		logger.Error().Err(err).Msg("start scheduler")
 		os.Exit(1)
 	}
+	disp.Start(rootCtx)
 
 	staticFS, err := web.Dist()
 	if err != nil {
@@ -103,13 +107,14 @@ func main() {
 	}
 
 	server := &api.Server{
-		DB:        db,
-		JWT:       jwtSvc,
-		Cipher:    cipher,
-		Runner:    r,
-		Scheduler: sch,
-		TplStore:  templates.NewStore(db),
-		Static:    staticFS,
+		DB:               db,
+		JWT:              jwtSvc,
+		Cipher:           cipher,
+		Runner:           r,
+		Scheduler:        sch,
+		TplStore:         templates.NewStore(db),
+		NotifyDispatcher: disp,
+		Static:           staticFS,
 	}
 	router := api.NewRouter(server)
 

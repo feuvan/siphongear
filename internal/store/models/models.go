@@ -111,16 +111,50 @@ type CollectorTemplate struct {
 }
 
 type ThresholdRule struct {
-	ID            uint           `gorm:"primaryKey" json:"id"`
-	Name          string         `gorm:"size:128;index" json:"name"`
-	Enabled       bool           `gorm:"index" json:"enabled"`
-	Priority      int            `gorm:"index" json:"priority"`
-	IndicatorKey  string         `gorm:"size:64;index" json:"indicator_key"`
-	TargetType    string         `gorm:"size:16" json:"target_type"`
-	TargetTags    string         `gorm:"size:255" json:"target_tags"`
-	ConditionJSON string         `gorm:"type:text" json:"condition_json"`
-	ActionJSON    string         `gorm:"type:text" json:"action_json"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ID               uint           `gorm:"primaryKey" json:"id"`
+	Name             string         `gorm:"size:128;index" json:"name"`
+	Enabled          bool           `gorm:"index" json:"enabled"`
+	Priority         int            `gorm:"index" json:"priority"`
+	IndicatorKey     string         `gorm:"size:64;index" json:"indicator_key"`
+	TargetType       string         `gorm:"size:16" json:"target_type"`
+	TargetTags       string         `gorm:"size:255" json:"target_tags"`
+	ConditionJSON    string         `gorm:"type:text" json:"condition_json"`
+	ActionJSON       string         `gorm:"type:text" json:"action_json"`
+	NotifyChannelIDs string         `gorm:"size:255" json:"notify_channel_ids"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type NotificationChannel struct {
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	Name      string         `gorm:"uniqueIndex;size:128" json:"name"`
+	Type      string         `gorm:"size:32;index" json:"type"`
+	Enabled   bool           `gorm:"index" json:"enabled"`
+	Payload   string         `gorm:"type:text" json:"-"`
+	Notes     string         `gorm:"type:text" json:"notes"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type NotificationLog struct {
+	ID          uint64    `gorm:"primaryKey" json:"id"`
+	ChannelID   uint      `gorm:"index" json:"channel_id"`
+	RuleID      uint      `gorm:"index" json:"rule_id"`
+	CollectorID uint      `gorm:"index" json:"collector_id"`
+	IndicatorID uint      `gorm:"index" json:"indicator_id"`
+	Severity    string    `gorm:"size:16" json:"severity"`
+	Title       string    `gorm:"size:255" json:"title"`
+	Snippet     string    `gorm:"type:text" json:"snippet"`
+	Status      string    `gorm:"size:16;index" json:"status"`
+	Error       string    `gorm:"type:text" json:"error"`
+	CreatedAt   time.Time `gorm:"index" json:"created_at"`
+}
+
+type RuleNotificationState struct {
+	RuleID      uint      `gorm:"primaryKey" json:"rule_id"`
+	IndicatorID uint      `gorm:"primaryKey" json:"indicator_id"`
+	Matched     bool      `json:"matched"`
+	LastEventAt time.Time `json:"last_event_at"`
 }

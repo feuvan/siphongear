@@ -15,6 +15,7 @@ const items = [
   { name: 'sites', label: 'Sites', icon: 'MapLocation' },
   { name: 'credentials', label: 'Credentials', icon: 'Lock' },
   { name: 'rules', label: 'Rules', icon: 'WarningFilled' },
+  { name: 'notifications', label: 'Notifications', icon: 'BellFilled' },
   { name: 'settings', label: 'Settings', icon: 'Setting' }
 ]
 </script>
