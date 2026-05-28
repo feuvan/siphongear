@@ -355,4 +355,92 @@ return { vars: {
 			{Key: "balance", Name: "余额", Type: "number", Unit: "USD", Display: "line"},
 		},
 	})
+
+	Register(Template{
+		Name:            "udealproxy-balance",
+		Description:     "UDealProxy 海外住宅代理：邮箱+密码 (md5) 登录 -> /customer_wallet/get_balance 取住宅 GB 余额（十进制 GB）",
+		NeedsCredential: true,
+		CredentialHint: &TemplateCredentialHint{
+			Type: "password",
+			Fields: []TemplateCredentialField{
+				{Name: "email", Label: "Email", Type: "text", Required: true, Placeholder: "user@example.com"},
+				{Name: "password", Label: "Password", Type: "password", Required: true},
+			},
+		},
+		ScheduleType: "interval",
+		ScheduleSpec: "30m",
+		Timeout:      30,
+		Variables:    []TemplateVariable{},
+		Pipeline: pipeline.Definition{
+			Steps: []pipeline.StepConfig{
+				{Kind: "input.credential", Name: "load credential",
+					Config: map[string]any{
+						"credential_id": 0,
+						"var_name":      "cred",
+					}},
+				{Kind: "script.js.input", Name: "md5 password",
+					Config: map[string]any{
+						"source":     `return { vars: { password_hash: crypto.md5(payload.vars.cred.password) } };`,
+						"timeout_ms": 2000,
+					}},
+				{Kind: "fetch.http", Name: "login",
+					Config: map[string]any{
+						"method": "POST",
+						"url":    "https://www.udealproxy.com/api/star-base-auth-server/customer_auth/login",
+						"headers": map[string]any{
+							"Content-Type": "application/json",
+							"language":     "en",
+						},
+						"body":    `{"account":"{{.vars.cred.email}}","password":"{{.vars.password_hash}}"}`,
+						"timeout": 15,
+					}},
+				{Kind: "parse.json", Name: "parse login"},
+				{Kind: "extract.jsonpath", Name: "extract token",
+					Config: map[string]any{
+						"mappings": []any{
+							map[string]any{"name": "token", "path": "$.data.token", "type": "string"},
+						},
+					}},
+				{Kind: "fetch.http", Name: "fetch balance",
+					Config: map[string]any{
+						"method": "GET",
+						"url":    "https://www.udealproxy.com/api/star-service-customer/customer_wallet/get_balance",
+						"headers": map[string]any{
+							"X-MCSHONG-AUTH-TOKEN": "{{.vars.token}}",
+							"language":             "en",
+						},
+						"timeout": 15,
+					}},
+				{Kind: "parse.json", Name: "parse balance"},
+				{Kind: "extract.jsonpath", Name: "extract fields",
+					Config: map[string]any{
+						"mappings": []any{
+							map[string]any{"name": "netflow_bytes", "path": "$.data.netflowBalance", "type": "number"},
+							map[string]any{"name": "plus_bytes", "path": "$.data.plusNetflowBalance", "type": "number"},
+							map[string]any{"name": "transfer_bytes", "path": "$.data.transferNetflowRemain", "type": "number"},
+							map[string]any{"name": "wallet", "path": "$.data.walletBalance", "type": "number"},
+							map[string]any{"name": "ip_balance", "path": "$.data.ipBalance", "type": "number"},
+						},
+					}},
+				{Kind: "script.js.extract", Name: "bytes -> GB",
+					Config: map[string]any{
+						"source": `var n = Number(payload.vars.netflow_bytes) || 0;
+var p = Number(payload.vars.plus_bytes) || 0;
+var t = Number(payload.vars.transfer_bytes) || 0;
+return { vars: { balance_gb: (n + p + t) / 1e9 } };`,
+						"timeout_ms": 2000,
+					}},
+			},
+			Indicators: []pipeline.IndicatorBind{
+				{Key: "balance_gb"},
+				{Key: "wallet"},
+				{Key: "ip_balance"},
+			},
+		},
+		Indicators: []TemplateIndicator{
+			{Key: "balance_gb", Name: "住宅余额", Type: "number", Unit: "GB", Display: "line"},
+			{Key: "wallet", Name: "钱包", Type: "number", Display: "line"},
+			{Key: "ip_balance", Name: "IP余额", Type: "number", Display: "line"},
+		},
+	})
 }

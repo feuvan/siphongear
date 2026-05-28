@@ -1,6 +1,10 @@
 package script
 
 import (
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -37,6 +41,12 @@ func (s *jsStep) Run(ctx *pipeline.Context, in *pipeline.Payload) (*pipeline.Pay
 		"info":  func(args ...any) { logger.Info().Msgf("%v", args) },
 		"warn":  func(args ...any) { logger.Warn().Msgf("%v", args) },
 		"error": func(args ...any) { logger.Error().Msgf("%v", args) },
+	})
+
+	_ = rt.Set("crypto", map[string]any{
+		"md5":    func(s string) string { sum := md5.Sum([]byte(s)); return hex.EncodeToString(sum[:]) },
+		"sha1":   func(s string) string { sum := sha1.Sum([]byte(s)); return hex.EncodeToString(sum[:]) },
+		"sha256": func(s string) string { sum := sha256.Sum256([]byte(s)); return hex.EncodeToString(sum[:]) },
 	})
 
 	if s.allowHTTP {
