@@ -570,7 +570,7 @@ type dashboardFilter struct {
 
 func (s *Server) buildDashboardCards(filter dashboardFilter) ([]dashboardCard, error) {
 	q := s.DB.
-		Joins("JOIN collectors ON collectors.id = indicators.collector_id AND collectors.deleted_at IS NULL").
+		Joins("JOIN collectors ON collectors.id = indicators.collector_id AND collectors.deleted_at IS NULL AND collectors.enabled = ?", true).
 		Where("indicators.hidden = ?", false)
 	if filter.CollectorID != 0 {
 		q = q.Where("indicators.collector_id = ?", filter.CollectorID)
