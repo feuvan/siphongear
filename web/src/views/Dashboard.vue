@@ -385,18 +385,17 @@ onBeforeUnmount(stopTimer)
               @click.stop
             >{{ group.siteName }}</a>
             <span v-else class="site-name">{{ group.siteName }}</span>
+            <div v-if="group.cards[0]?.site_tags?.length" class="site-tags-inline">
+              <el-tag
+                v-for="t in group.cards[0].site_tags || []"
+                :key="t"
+                size="small"
+                :effect="selectedTags.has(t) ? 'dark' : 'plain'"
+                class="site-tag-chip"
+                @click.stop="toggleTag(t)"
+              >{{ t }}</el-tag>
+            </div>
             <span class="site-count">{{ group.cards.length }}</span>
-          </div>
-
-          <div v-if="group.cards[0]?.site_tags?.length" class="site-tags">
-            <el-tag
-              v-for="t in group.cards[0].site_tags || []"
-              :key="t"
-              size="small"
-              :effect="selectedTags.has(t) ? 'dark' : 'plain'"
-              class="site-tag-chip"
-              @click.stop="toggleTag(t)"
-            >{{ t }}</el-tag>
           </div>
 
           <div class="metrics">
@@ -492,6 +491,13 @@ onBeforeUnmount(stopTimer)
   gap: 4px;
   margin: -4px 0 8px;
 }
+.site-tags-inline {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
 .site-tag-chip {
   cursor: pointer;
   user-select: none;
@@ -538,6 +544,7 @@ onBeforeUnmount(stopTimer)
   font-weight: 600;
   color: var(--sg-text-primary);
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
