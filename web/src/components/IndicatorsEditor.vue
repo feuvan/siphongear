@@ -2,6 +2,7 @@
 import { reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
+import ResponsiveTable, { type RTColumn } from '@/components/ResponsiveTable.vue'
 
 const props = defineProps<{ collectorId: number, indicators: any[] }>()
 const emit = defineEmits<{ (e: 'update:indicators', v: any[]): void }>()
@@ -9,6 +10,17 @@ const emit = defineEmits<{ (e: 'update:indicators', v: any[]): void }>()
 const rows = ref<any[]>([])
 const dialog = ref(false)
 const form = reactive<any>({ id: 0, key: '', name: '', type: 'number', unit: '', display: 'gauge', hidden: false })
+
+const columns: RTColumn[] = [
+  { key: 'id', label: 'ID', width: 70, hideOnMobile: true },
+  { key: 'key', label: 'Key (var name)', primary: true, width: 160 },
+  { key: 'name', label: 'Display Name' },
+  { key: 'type', label: 'Type', width: 120 },
+  { key: 'unit', label: 'Unit', width: 100 },
+  { key: 'display', label: 'Display', width: 120 },
+  { key: 'dashboard', label: 'Dashboard', width: 110, slot: 'dashboard' },
+  { key: 'actions', label: 'Actions', width: 180, slot: 'actions' }
+]
 
 async function reload() {
   rows.value = await api.indicators.list(props.collectorId)
@@ -57,34 +69,24 @@ watch(
 
 <template>
   <div>
-    <div style="margin-bottom: 12px">
+    <div class="indicators-toolbar">
       <el-button type="primary" @click="openCreate">New Indicator</el-button>
-      <el-text type="info" style="margin-left: 12px;">
+      <el-text type="info" class="indicators-hint">
         Indicators reference variables produced by your pipeline (extract step). Bind them by var name (key).
       </el-text>
     </div>
-    <el-table :data="rows" border>
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="key" label="Key (var name)" width="160" />
-      <el-table-column prop="name" label="Display Name" />
-      <el-table-column prop="type" label="Type" width="120" />
-      <el-table-column prop="unit" label="Unit" width="100" />
-      <el-table-column prop="display" label="Display" width="120" />
-      <el-table-column label="Dashboard" width="110">
-        <template #default="{ row }">
-          <el-switch
-            :model-value="!row.hidden"
-            @change="(v: boolean) => toggleVisible(row, v)"
-          />
-        </template>
-      </el-table-column>
-      <el-table-column label="Actions" width="180">
-        <template #default="{ row }">
-          <el-button link @click="openEdit(row)">Edit</el-button>
-          <el-button link type="danger" @click="remove(row)">Delete</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <ResponsiveTable :rows="rows" :columns="columns" row-key="id">
+      <template #dashboard="{ row }">
+        <el-switch
+          :model-value="!row.hidden"
+          @change="(v: boolean) => toggleVisible(row, v)"
+        />
+      </template>
+      <template #actions="{ row }">
+        <el-button link @click="openEdit(row)">Edit</el-button>
+        <el-button link type="danger" @click="remove(row)">Delete</el-button>
+      </template>
+    </ResponsiveTable>
 
     <el-dialog v-model="dialog" :title="form.id ? 'Edit Indicator' : 'New Indicator'" width="520px">
       <el-form label-width="120px">
@@ -117,3 +119,22 @@ watch(
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.indicators-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.indicators-hint {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 768px) {
+  .indicators-hint {
+    flex: 1 1 100%;
+  }
+}
+</style>

@@ -2,9 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/api'
+import { useUiStore } from '@/store/ui'
 
 const route = useRoute()
 const router = useRouter()
+const ui = useUiStore()
 const id = computed(() => Number(route.params.id))
 
 const run = ref<any>(null)
@@ -28,7 +30,7 @@ onMounted(load)
       </div>
     </div>
 
-    <el-descriptions border>
+    <el-descriptions border :column="ui.isMobile ? 1 : 3" :direction="ui.isMobile ? 'vertical' : 'horizontal'">
       <el-descriptions-item label="Collector">{{ run.collector_id }}</el-descriptions-item>
       <el-descriptions-item label="Status">
         <el-tag :type="run.status === 'success' ? 'success' : run.status === 'failed' ? 'danger' : 'info'">

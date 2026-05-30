@@ -224,4 +224,14 @@ async function save() {
   gap: 8px;
   margin-bottom: 8px;
 }
+@media (max-width: 768px) {
+  .field-row {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .field-row :deep(.el-input),
+  .field-row :deep(.el-select) {
+    width: 100% !important;
+  }
+}
 </style>

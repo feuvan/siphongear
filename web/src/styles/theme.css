@@ -153,7 +153,23 @@ body,
   .el-dialog {
     width: 95vw !important;
     max-width: 95vw !important;
-    margin: 16px auto !important;
+    margin: 5vh auto !important;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+  }
+  .el-dialog__body {
+    overflow: auto;
+    flex: 1 1 auto;
+  }
+  .el-dialog__header,
+  .el-dialog__footer {
+    flex-shrink: 0;
+  }
+  .el-dialog .el-select,
+  .el-dialog .el-input-number,
+  .el-dialog .el-autocomplete {
+    width: 100% !important;
   }
   .el-drawer.ltr,
   .el-drawer.rtl {
@@ -162,6 +178,13 @@ body,
   }
   .el-drawer:not(.ltr):not(.rtl) {
     width: 95vw !important;
+  }
+  .el-form--inline .el-form-item {
+    margin-right: 0;
+    width: 100%;
+  }
+  .el-form--inline .el-form-item .el-select {
+    width: 100% !important;
   }
   .el-tabs__nav-wrap {
     overflow-x: auto;

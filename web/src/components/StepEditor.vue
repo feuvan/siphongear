@@ -135,4 +135,13 @@ function setArrayItem(key: string, idx: number, item: any) {
 .field-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; }
 .field-input { flex: 0 1 360px; }
 .field-hint { flex: 1; line-height: 1.4; padding-top: 4px; }
+@media (max-width: 768px) {
+  .field-row { flex-direction: column; gap: 4px; }
+  .field-input { flex: 1 1 auto; width: 100%; }
+  .field-hint { flex: none; padding-top: 0; }
+  .array-row { flex-direction: column; }
+  .array-row :deep(.el-col) { flex: 0 0 100%; max-width: 100%; }
+  .array-row :deep(.el-row) { width: 100%; row-gap: 6px; }
+  .array-row :deep(.el-button) { margin-left: 0 !important; margin-top: 6px; align-self: flex-end; }
+}
 </style>
