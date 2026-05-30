@@ -23,6 +23,8 @@ interface RuleRow {
   target_type: 'all' | 'tags'
   target_tags: string
   target_tags_arr: string[]
+  exclude_tags: string
+  exclude_tags_arr: string[]
   conditions: Condition[]
   actions: Action[]
   notify_channel_ids: string
@@ -54,6 +56,9 @@ const channels = ref<{ id: number; name: string; type: string; enabled: boolean 
 const tagInput = ref('')
 const tagInputVisible = ref(false)
 const tagInputRef = ref<any>(null)
+const exTagInput = ref('')
+const exTagInputVisible = ref(false)
+const exTagInputRef = ref<any>(null)
 
 const form = reactive({
   id: 0,
@@ -63,6 +68,7 @@ const form = reactive({
   indicator_key: '',
   target_type: 'all' as 'all' | 'tags',
   target_tags: [] as string[],
+  exclude_tags: [] as string[],
   cond_op: 'lt' as Condition['op'],
   cond_value: 0,
   action_type: 'indicator_color' as Action['type'],
@@ -108,10 +114,16 @@ function actionSummary(r: RuleRow): string {
 }
 
 function targetSummary(r: RuleRow): string {
-  if (r.target_type === 'all') return 'All sites'
-  const tags = r.target_tags_arr || []
-  if (!tags.length) return 'Tags: (none)'
-  return `Tags: ${tags.join(', ')}`
+  const ex = r.exclude_tags_arr || []
+  let base: string
+  if (r.target_type === 'all') {
+    base = 'All sites'
+  } else {
+    const tags = r.target_tags_arr || []
+    base = tags.length ? `Tags: ${tags.join(', ')}` : 'Tags: (none)'
+  }
+  if (ex.length) base += ` · excl: ${ex.join(', ')}`
+  return base
 }
 
 const channelMap = computed(() => {
@@ -163,6 +175,7 @@ function openCreate() {
     indicator_key: '',
     target_type: 'all',
     target_tags: [],
+    exclude_tags: [],
     cond_op: 'lt',
     cond_value: 0,
     action_type: 'indicator_color',
@@ -172,6 +185,8 @@ function openCreate() {
   })
   tagInput.value = ''
   tagInputVisible.value = false
+  exTagInput.value = ''
+  exTagInputVisible.value = false
   dialog.value = true
 }
 
@@ -186,6 +201,7 @@ function openEdit(row: RuleRow) {
     indicator_key: row.indicator_key,
     target_type: row.target_type,
     target_tags: [...(row.target_tags_arr || [])],
+    exclude_tags: [...(row.exclude_tags_arr || [])],
     cond_op: c?.op || 'lt',
     cond_value: c?.value ?? 0,
     action_type: a?.type || 'indicator_color',
@@ -195,6 +211,8 @@ function openEdit(row: RuleRow) {
   })
   tagInput.value = ''
   tagInputVisible.value = false
+  exTagInput.value = ''
+  exTagInputVisible.value = false
   dialog.value = true
 }
 
@@ -235,6 +253,43 @@ const suggestedTagsRemaining = computed(() =>
   allSiteTags.value.filter(t => !form.target_tags.includes(t))
 )
 
+function showExTagInput() {
+  exTagInputVisible.value = true
+  nextTick(() => exTagInputRef.value?.focus?.())
+}
+
+function commitExTagInput() {
+  const v = exTagInput.value.trim()
+  if (v && !form.exclude_tags.includes(v)) {
+    form.exclude_tags.push(v)
+  }
+  exTagInput.value = ''
+  exTagInputVisible.value = false
+}
+
+function onExTagInputKey(e: KeyboardEvent) {
+  if (e.key === ',') {
+    e.preventDefault()
+    commitExTagInput()
+    exTagInputVisible.value = true
+    nextTick(() => exTagInputRef.value?.focus?.())
+  } else if (e.key === 'Backspace' && exTagInput.value === '' && form.exclude_tags.length) {
+    form.exclude_tags.pop()
+  }
+}
+
+function removeExTag(t: string) {
+  form.exclude_tags = form.exclude_tags.filter(x => x !== t)
+}
+
+function pickSuggestedExTag(t: string) {
+  if (!form.exclude_tags.includes(t)) form.exclude_tags.push(t)
+}
+
+const suggestedExTagsRemaining = computed(() =>
+  allSiteTags.value.filter(t => !form.exclude_tags.includes(t))
+)
+
 async function save() {
   if (!form.name.trim()) {
     ElMessage.error('name is required')
@@ -245,6 +300,7 @@ async function save() {
     return
   }
   if (tagInput.value.trim()) commitTagInput()
+  if (exTagInput.value.trim()) commitExTagInput()
   if (form.target_type === 'tags' && form.target_tags.length === 0) {
     ElMessage.error('select at least one tag, or switch target to "All sites"')
     return
@@ -256,6 +312,7 @@ async function save() {
     indicator_key: form.indicator_key.trim(),
     target_type: form.target_type,
     target_tags: form.target_type === 'tags' ? form.target_tags : [],
+    exclude_tags: form.exclude_tags,
     conditions: [{ type: 'compare', op: form.cond_op, value: Number(form.cond_value) }],
     actions: [{ type: form.action_type }],
     notify_channel_ids: form.notify_channel_ids,
@@ -289,6 +346,7 @@ async function toggleEnabled(row: RuleRow) {
       indicator_key: fresh.indicator_key,
       target_type: fresh.target_type,
       target_tags: fresh.target_tags_arr || [],
+      exclude_tags: fresh.exclude_tags_arr || [],
       conditions: fresh.conditions || [],
       actions: fresh.actions || [],
       notify_channel_ids: fresh.notify_channel_ids_arr || [],
@@ -357,17 +415,32 @@ onMounted(async () => {
         </span>
       </template>
       <template #target="{ row }">
-        <span v-if="row.target_type === 'all'">All sites</span>
-        <span v-else>
-          <el-tag
-            v-for="t in row.target_tags_arr || []"
-            :key="t"
-            size="small"
-            effect="plain"
-            class="tag-cell-item"
-          >{{ t }}</el-tag>
-          <span v-if="!(row.target_tags_arr || []).length" class="tag-cell-empty">(none)</span>
-        </span>
+        <div class="target-cell">
+          <div>
+            <span v-if="row.target_type === 'all'">All sites</span>
+            <span v-else>
+              <el-tag
+                v-for="t in row.target_tags_arr || []"
+                :key="t"
+                size="small"
+                effect="plain"
+                class="tag-cell-item"
+              >{{ t }}</el-tag>
+              <span v-if="!(row.target_tags_arr || []).length" class="tag-cell-empty">(none)</span>
+            </span>
+          </div>
+          <div v-if="(row.exclude_tags_arr || []).length" class="target-excl">
+            <span class="tag-cell-empty">excl:</span>
+            <el-tag
+              v-for="t in row.exclude_tags_arr || []"
+              :key="t"
+              size="small"
+              effect="plain"
+              type="info"
+              class="tag-cell-item"
+            >{{ t }}</el-tag>
+          </div>
+        </div>
       </template>
       <template #enabled="{ row }">
         <el-switch :model-value="row.enabled" @click.stop="toggleEnabled(row)" />
@@ -536,6 +609,45 @@ onMounted(async () => {
             >+ {{ t }}</el-tag>
           </div>
         </el-form-item>
+
+        <el-form-item label="Exclude tags">
+          <div class="tag-editor">
+            <el-tag
+              v-for="t in form.exclude_tags"
+              :key="t"
+              closable
+              size="small"
+              effect="plain"
+              type="info"
+              @close="removeExTag(t)"
+            >{{ t }}</el-tag>
+            <el-input
+              v-if="exTagInputVisible"
+              ref="exTagInputRef"
+              v-model="exTagInput"
+              size="small"
+              class="tag-editor-input"
+              @keydown="onExTagInputKey"
+              @keydown.enter.prevent="commitExTagInput"
+              @blur="commitExTagInput"
+            />
+            <el-button v-else size="small" plain @click="showExTagInput">+ Tag</el-button>
+          </div>
+          <div class="form-hint" style="margin-left: 0; margin-top: 4px">
+            Sites carrying any of these tags are skipped, even when targeted above.
+          </div>
+          <div v-if="suggestedExTagsRemaining.length" class="tag-hints">
+            <span class="form-hint">Existing site tags:</span>
+            <el-tag
+              v-for="t in suggestedExTagsRemaining"
+              :key="t"
+              size="small"
+              effect="plain"
+              class="tag-hint-item"
+              @click="pickSuggestedExTag(t)"
+            >+ {{ t }}</el-tag>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialog = false">Cancel</el-button>
@@ -584,6 +696,14 @@ onMounted(async () => {
 }
 .tag-cell-item {
   margin-right: 4px;
+}
+.target-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.target-excl {
+  font-size: 12px;
 }
 .tag-cell-empty {
   color: var(--sg-text-muted);

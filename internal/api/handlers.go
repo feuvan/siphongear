@@ -616,11 +616,12 @@ func (s *Server) buildDashboardCards(filter dashboardFilter) ([]dashboardCard, e
 	}
 
 	type ruleEntry struct {
-		row        models.ThresholdRule
-		conditions []rules.Condition
-		actions    []rules.Action
-		actionTags []string
-		tagFilter  []string
+		row           models.ThresholdRule
+		conditions    []rules.Condition
+		actions       []rules.Action
+		actionTags    []string
+		tagFilter     []string
+		excludeFilter []string
 	}
 	var rulesByKey map[string][]ruleEntry
 	{
@@ -641,11 +642,12 @@ func (s *Server) buildDashboardCards(filter dashboardFilter) ([]dashboardCard, e
 				actionTags = append(actionTags, a.Type)
 			}
 			rulesByKey[r.IndicatorKey] = append(rulesByKey[r.IndicatorKey], ruleEntry{
-				row:        r,
-				conditions: conds,
-				actions:    acts,
-				actionTags: actionTags,
-				tagFilter:  rules.ParseTargetTags(r.TargetTags),
+				row:           r,
+				conditions:    conds,
+				actions:       acts,
+				actionTags:    actionTags,
+				tagFilter:     rules.ParseTargetTags(r.TargetTags),
+				excludeFilter: rules.ParseTargetTags(r.ExcludeTags),
 			})
 		}
 	}
@@ -704,6 +706,9 @@ func (s *Server) buildDashboardCards(filter dashboardFilter) ([]dashboardCard, e
 				if !rules.TagsIntersect(re.tagFilter, card.SiteTags) {
 					continue
 				}
+			}
+			if len(re.excludeFilter) > 0 && rules.TagsIntersect(re.excludeFilter, card.SiteTags) {
+				continue
 			}
 			if !rules.Evaluate(re.conditions, card.ValueNum) {
 				continue

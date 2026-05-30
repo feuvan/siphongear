@@ -118,6 +118,7 @@ type ThresholdRule struct {
 	IndicatorKey     string         `gorm:"size:64;index" json:"indicator_key"`
 	TargetType       string         `gorm:"size:16" json:"target_type"`
 	TargetTags       string         `gorm:"size:255" json:"target_tags"`
+	ExcludeTags      string         `gorm:"size:255" json:"exclude_tags"`
 	ConditionJSON    string         `gorm:"type:text" json:"condition_json"`
 	ActionJSON       string         `gorm:"type:text" json:"action_json"`
 	NotifyChannelIDs string         `gorm:"size:255" json:"notify_channel_ids"`

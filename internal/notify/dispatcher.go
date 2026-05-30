@@ -143,6 +143,11 @@ func (d *Dispatcher) handle(ctx context.Context, ev events.Event) {
 				continue
 			}
 		}
+		if excludeFilter := rules.ParseTargetTags(rule.ExcludeTags); len(excludeFilter) > 0 {
+			if rules.TagsIntersect(excludeFilter, siteTags) {
+				continue
+			}
+		}
 		raw, present := indicators[rule.IndicatorKey]
 		if !present {
 			continue

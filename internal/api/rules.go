@@ -19,6 +19,7 @@ type ruleIn struct {
 	IndicatorKey     string            `json:"indicator_key"`
 	TargetType       string            `json:"target_type"`
 	TargetTags       []string          `json:"target_tags"`
+	ExcludeTags      []string          `json:"exclude_tags"`
 	Conditions       []rules.Condition `json:"conditions"`
 	Actions          []rules.Action    `json:"actions"`
 	NotifyChannelIDs []uint            `json:"notify_channel_ids"`
@@ -29,6 +30,7 @@ type ruleIn struct {
 type ruleOut struct {
 	models.ThresholdRule
 	TargetTagsArr       []string          `json:"target_tags_arr"`
+	ExcludeTagsArr      []string          `json:"exclude_tags_arr"`
 	Conditions          []rules.Condition `json:"conditions"`
 	Actions             []rules.Action    `json:"actions"`
 	NotifyChannelIDsArr []uint            `json:"notify_channel_ids_arr"`
@@ -40,6 +42,7 @@ func toRuleOut(r models.ThresholdRule) ruleOut {
 	return ruleOut{
 		ThresholdRule:       r,
 		TargetTagsArr:       rules.ParseTargetTags(r.TargetTags),
+		ExcludeTagsArr:      rules.ParseTargetTags(r.ExcludeTags),
 		Conditions:          conds,
 		Actions:             acts,
 		NotifyChannelIDsArr: notify.ParseChannelIDs(r.NotifyChannelIDs),
@@ -95,6 +98,11 @@ func applyRuleIn(in *ruleIn, row *models.ThresholdRule) error {
 		clean := rules.ParseTargetTags(strings.Join(in.TargetTags, ","))
 		tagsCSV = strings.Join(clean, ",")
 	}
+	excludeCSV := ""
+	if len(in.ExcludeTags) > 0 {
+		clean := rules.ParseTargetTags(strings.Join(in.ExcludeTags, ","))
+		excludeCSV = strings.Join(clean, ",")
+	}
 	condJSON, err := sonic.MarshalString(in.Conditions)
 	if err != nil {
 		return err
@@ -109,6 +117,7 @@ func applyRuleIn(in *ruleIn, row *models.ThresholdRule) error {
 	row.IndicatorKey = in.IndicatorKey
 	row.TargetType = in.TargetType
 	row.TargetTags = tagsCSV
+	row.ExcludeTags = excludeCSV
 	row.ConditionJSON = condJSON
 	row.ActionJSON = actJSON
 	row.NotifyChannelIDs = notify.FormatChannelIDs(in.NotifyChannelIDs)
