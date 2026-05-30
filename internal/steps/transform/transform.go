@@ -123,15 +123,54 @@ func (s *exprStep) Run(_ *pipeline.Context, in *pipeline.Payload) (*pipeline.Pay
 	if val == nil || goja.IsUndefined(val) || goja.IsNull(val) {
 		return nil, fmt.Errorf("expr %q produced no value", s.expr)
 	}
-	f, ok := val.Export().(float64)
+	exported := val.Export()
+
+	if s.saveAs != "" {
+		f, err := finiteNumber(exported)
+		if err != nil {
+			return nil, fmt.Errorf("expr %q: %w", s.expr, err)
+		}
+		out.Vars[s.saveAs] = f
+		return out, nil
+	}
+
+	m, ok := exported.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("expr %q result is not numeric: %v", s.expr, val.Export())
+		return nil, fmt.Errorf("expr %q must return an object when save_as is empty, got: %v", s.expr, exported)
+	}
+	if len(m) == 0 {
+		return nil, fmt.Errorf("expr %q produced no values", s.expr)
+	}
+	for k, v := range m {
+		f, err := finiteNumber(v)
+		if err != nil {
+			return nil, fmt.Errorf("expr %q key %q: %w", s.expr, k, err)
+		}
+		out.Vars[k] = f
+	}
+	return out, nil
+}
+
+func finiteNumber(v any) (float64, error) {
+	var f float64
+	switch x := v.(type) {
+	case float64:
+		f = x
+	case float32:
+		f = float64(x)
+	case int:
+		f = float64(x)
+	case int32:
+		f = float64(x)
+	case int64:
+		f = float64(x)
+	default:
+		return 0, fmt.Errorf("result is not numeric: %v", v)
 	}
 	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return nil, fmt.Errorf("expr %q produced non-finite result: %v", s.expr, f)
+		return 0, fmt.Errorf("non-finite result: %v", f)
 	}
-	out.Vars[s.saveAs] = f
-	return out, nil
+	return f, nil
 }
 
 func newExpr(cfg map[string]any) (pipeline.Step, error) {
@@ -139,13 +178,9 @@ func newExpr(cfg map[string]any) (pipeline.Step, error) {
 	if expr == "" {
 		return nil, fmt.Errorf("expr required")
 	}
-	saveAs := pipeline.CfgString(cfg, "save_as")
-	if saveAs == "" {
-		return nil, fmt.Errorf("save_as required")
-	}
 	return &exprStep{
 		expr:      expr,
-		saveAs:    saveAs,
+		saveAs:    pipeline.CfgString(cfg, "save_as"),
 		timeoutMS: pipeline.CfgInt(cfg, "timeout_ms", 5000),
 	}, nil
 }
@@ -174,10 +209,10 @@ func init() {
 
 	pipeline.Register(pipeline.StepMeta{
 		Kind: "transform.expr", Stage: "transform",
-		Description: "Evaluate a numeric expression over vars (e.g. vars.balance / 100) and save the result",
+		Description: "Evaluate a numeric expression over vars and save the result. Single mode: set Save as var. Batch mode: leave it empty and return an object like {balance: vars.balance / 100}",
 		Schema: map[string]any{
-			"expr":       map[string]any{"type": "code", "lang": "javascript", "label": "Expression (reads vars.*)", "required": true},
-			"save_as":    map[string]any{"type": "string", "label": "Save as var (set to source name to overwrite)", "required": true},
+			"expr":       map[string]any{"type": "code", "lang": "javascript", "label": "Expression", "required": true, "hint": "Reads vars.*. Single: vars.balance / 100. Batch (Save as var empty): {balance: vars.balance / 100, fee: vars.fee / 100}"},
+			"save_as":    map[string]any{"type": "string", "label": "Save as var", "hint": "Single-value mode: output var name (use the source name to overwrite). Leave empty for batch object mode"},
 			"timeout_ms": map[string]any{"type": "number", "label": "Timeout (ms)", "default": 5000},
 		},
 	}, newExpr)

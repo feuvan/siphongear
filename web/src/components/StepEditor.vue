@@ -62,7 +62,10 @@ function setArrayItem(key: string, idx: number, item: any) {
     <template v-for="[key, s] in fieldSchemaEntries()" :key="key">
       <el-form-item :label="s.label || key" :required="!!s.required">
         <template v-if="s.type === 'string' && !s.options">
-          <el-input :model-value="value[key] ?? s.default ?? ''" @update:model-value="(v: string) => setField(key, v)" :placeholder="s.placeholder" />
+          <div class="field-row">
+            <el-input :model-value="value[key] ?? s.default ?? ''" @update:model-value="(v: string) => setField(key, v)" :placeholder="s.placeholder" class="field-input" />
+            <el-text v-if="s.hint" type="info" size="small" class="field-hint">{{ s.hint }}</el-text>
+          </div>
         </template>
         <template v-else-if="s.type === 'string' && s.options">
           <el-select :model-value="value[key] ?? s.default ?? ''" @update:model-value="(v: any) => setField(key, v)">
@@ -76,12 +79,16 @@ function setArrayItem(key: string, idx: number, item: any) {
           <el-switch :model-value="!!value[key]" @update:model-value="(v: any) => setField(key, v)" />
         </template>
         <template v-else-if="s.type === 'text' || s.type === 'code'">
-          <el-input
-            type="textarea"
-            :rows="s.type === 'code' ? 10 : 3"
-            :model-value="value[key] ?? s.default ?? ''"
-            @update:model-value="(v: any) => setField(key, v)"
-          />
+          <div class="field-row">
+            <el-input
+              type="textarea"
+              :rows="s.type === 'code' ? 10 : 3"
+              :model-value="value[key] ?? s.default ?? ''"
+              @update:model-value="(v: any) => setField(key, v)"
+              class="field-input"
+            />
+            <el-text v-if="s.hint" type="info" size="small" class="field-hint">{{ s.hint }}</el-text>
+          </div>
         </template>
         <template v-else-if="s.type === 'object'">
           <el-input
@@ -125,4 +132,7 @@ function setArrayItem(key: string, idx: number, item: any) {
 
 <style scoped>
 .array-row { display: flex; align-items: flex-start; margin-bottom: 6px; }
+.field-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; }
+.field-input { flex: 0 1 360px; }
+.field-hint { flex: 1; line-height: 1.4; padding-top: 4px; }
 </style>

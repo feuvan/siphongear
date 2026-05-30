@@ -111,3 +111,51 @@ func TestEngine_TransformExprNonFiniteFails(t *testing.T) {
 		t.Fatalf("expected error for non-finite result, got nil")
 	}
 }
+
+func TestEngine_TransformExprBatch(t *testing.T) {
+	def := pipeline.Definition{
+		Steps: []pipeline.StepConfig{
+			{Kind: "input.static", Config: map[string]any{
+				"vars": map[string]any{"balance": 1250.0, "fee": 300.0},
+			}},
+			{Kind: "transform.expr", Config: map[string]any{
+				"expr": "({balance: vars.balance / 100, fee: vars.fee / 100})",
+			}},
+		},
+		Indicators: []pipeline.IndicatorBind{{Key: "balance"}, {Key: "fee"}},
+	}
+	pCtx := &pipeline.Context{Context: context.Background(), Logger: zerolog.Nop()}
+	res, err := pipeline.NewEngine().Run(pCtx, def, pipeline.NewPayload())
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if v, ok := res.Indicators["balance"].(float64); !ok || v != 12.5 {
+		t.Fatalf("balance = %v", res.Indicators["balance"])
+	}
+	if v, ok := res.Indicators["fee"].(float64); !ok || v != 3 {
+		t.Fatalf("fee = %v", res.Indicators["fee"])
+	}
+}
+
+func TestEngine_TransformExprIntResult(t *testing.T) {
+	def := pipeline.Definition{
+		Steps: []pipeline.StepConfig{
+			{Kind: "input.static", Config: map[string]any{
+				"vars": map[string]any{"n": 21.0},
+			}},
+			{Kind: "transform.expr", Config: map[string]any{
+				"expr":    "vars.n * 2",
+				"save_as": "doubled",
+			}},
+		},
+		Indicators: []pipeline.IndicatorBind{{Key: "doubled"}},
+	}
+	pCtx := &pipeline.Context{Context: context.Background(), Logger: zerolog.Nop()}
+	res, err := pipeline.NewEngine().Run(pCtx, def, pipeline.NewPayload())
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if v, ok := res.Indicators["doubled"].(float64); !ok || v != 42 {
+		t.Fatalf("doubled = %v", res.Indicators["doubled"])
+	}
+}
