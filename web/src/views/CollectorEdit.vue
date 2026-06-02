@@ -92,6 +92,13 @@ function removeStep(idx: number) {
   def.value.steps.splice(idx, 1)
 }
 
+function normalizeSteps(d: any) {
+  if (d && Array.isArray(d.steps)) {
+    for (const s of d.steps) s.enabled = s.enabled !== false
+  }
+  return d
+}
+
 function moveStep(idx: number, dir: -1 | 1) {
   const j = idx + dir
   if (j < 0 || j >= def.value.steps.length) return
@@ -105,7 +112,7 @@ async function load() {
   if (id.value) {
     const c = await api.collectors.get(id.value)
     collector.value = c
-    try { def.value = c.pipeline_json ? JSON.parse(c.pipeline_json) : { steps: [], indicators: [] } }
+    try { def.value = c.pipeline_json ? normalizeSteps(JSON.parse(c.pipeline_json)) : { steps: [], indicators: [] } }
     catch (e) { def.value = { steps: [], indicators: [] } }
     indicators.value = await api.indicators.list(id.value)
   }
@@ -154,7 +161,7 @@ async function applyTemplate(payload: { template: any; vars: Record<string, stri
   if (typeof vars.base_url === 'string') {
     vars.base_url = vars.base_url.trim().replace(/\/+$/, '')
   }
-  const cloned = JSON.parse(JSON.stringify(tpl.pipeline)) as { steps: any[]; indicators: any[] }
+  const cloned = normalizeSteps(JSON.parse(JSON.stringify(tpl.pipeline))) as { steps: any[]; indicators: any[] }
   for (const step of cloned.steps) {
     if (step.kind === 'input.credential' && step.config) {
       step.config.credential_id = payload.credentialId
@@ -188,7 +195,7 @@ async function applyTemplate(payload: { template: any; vars: Record<string, stri
     } else {
       const created = await api.collectors.create(collector.value)
       collector.value = created
-      try { def.value = created.pipeline_json ? JSON.parse(created.pipeline_json) : { steps: [], indicators: [] } } catch {}
+      try { def.value = created.pipeline_json ? normalizeSteps(JSON.parse(created.pipeline_json)) : { steps: [], indicators: [] } } catch {}
       router.replace({ name: 'collector-edit', params: { id: created.id } })
     }
 
