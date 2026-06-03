@@ -1,13 +1,43 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, computed } from 'vue'
+import { onMounted, reactive, ref, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
 import ResponsiveTable, { type RTColumn } from '@/components/ResponsiveTable.vue'
 
+interface CredField { name: string; label: string; type: string; required: boolean; placeholder?: string }
+
+const CRED_FIELDS: Record<string, CredField[]> = {
+  password: [
+    { name: 'email', label: 'Email / Username', type: 'text', required: true, placeholder: 'user@example.com' },
+    { name: 'password', label: 'Password', type: 'password', required: true },
+  ],
+  token: [
+    { name: 'api_key', label: 'API Key / Token', type: 'password', required: true, placeholder: 'sk-...' },
+    { name: 'user_id', label: 'User ID', type: 'text', required: false, placeholder: 'optional' },
+  ],
+  cookie: [
+    { name: 'cookie', label: 'Cookie', type: 'password', required: true, placeholder: 'session=...; key=...' },
+  ],
+  custom: [],
+}
+
 const rows = ref<any[]>([])
 const sites = ref<any[]>([])
 const dialog = ref(false)
-const form = reactive<any>({ id: 0, site_id: 0, name: '', type: 'token', payload_text: '{}' })
+const form = reactive({ id: 0, site_id: 0, name: '', type: 'token' })
+const fieldsData = reactive<Record<string, string>>({})
+const customPayload = ref<string>('{}')
+
+const fieldsForType = computed(() => CRED_FIELDS[form.type] || [])
+const isCustom = computed(() => form.type === 'custom')
+
+function resetFields() {
+  for (const k of Object.keys(fieldsData)) delete fieldsData[k]
+  for (const f of fieldsForType.value) fieldsData[f.name] = ''
+  customPayload.value = '{}'
+}
+
+watch(() => form.type, resetFields)
 
 async function reload() {
   [rows.value, sites.value] = await Promise.all([api.credentials.list(), api.sites.list()])
@@ -25,16 +55,32 @@ const columns: RTColumn[] = [
 ]
 
 function openCreate() {
-  Object.assign(form, { id: 0, site_id: sites.value[0]?.id || 0, name: '', type: 'token', payload_text: '{}' })
+  form.id = 0
+  form.site_id = sites.value[0]?.id || 0
+  form.name = ''
+  form.type = 'token'
+  resetFields()
   dialog.value = true
 }
 
-async function save() {
-  let payload: any = {}
-  try { payload = JSON.parse(form.payload_text || '{}') } catch (e: any) {
-    ElMessage.error('payload must be valid JSON: ' + e.message)
-    return
+function buildPayload(): any {
+  if (isCustom.value) {
+    try { return JSON.parse(customPayload.value || '{}') } catch (e: any) {
+      ElMessage.error('payload must be valid JSON: ' + e.message)
+      return null
+    }
   }
+  const payload: Record<string, string> = {}
+  for (const f of fieldsForType.value) {
+    if (fieldsData[f.name]) payload[f.name] = fieldsData[f.name]
+    else if (f.required) payload[f.name] = ''
+  }
+  return payload
+}
+
+async function save() {
+  const payload = buildPayload()
+  if (payload === null) return
   const body = { site_id: form.site_id, name: form.name, type: form.type, payload }
   if (form.id) await api.credentials.update(form.id, body)
   else await api.credentials.create(body)
@@ -44,7 +90,11 @@ async function save() {
 }
 
 async function openEdit(row: any) {
-  Object.assign(form, { ...row, payload_text: '{}' })
+  form.id = row.id
+  form.site_id = row.site_id
+  form.name = row.name
+  form.type = row.type
+  resetFields()
   dialog.value = true
 }
 
@@ -85,16 +135,37 @@ onMounted(reload)
         <el-form-item label="Type">
           <el-select v-model="form.type">
             <el-option label="password" value="password" />
-            <el-option label="cookie" value="cookie" />
             <el-option label="token" value="token" />
+            <el-option label="cookie" value="cookie" />
             <el-option label="custom" value="custom" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Payload (JSON)">
-          <el-input v-model="form.payload_text" type="textarea" :rows="8" placeholder='{"api_key": "..."}' />
-        </el-form-item>
-        <el-alert v-if="form.id" type="info" show-icon :closable="false">
-          For security, existing payload is not displayed. Submit replaces it.
+
+        <el-divider content-position="left">Fields</el-divider>
+
+        <template v-if="isCustom">
+          <el-form-item label="Payload (JSON)">
+            <el-input v-model="customPayload" type="textarea" :rows="8" placeholder='{"api_key": "..."}' />
+          </el-form-item>
+        </template>
+        <template v-else>
+          <el-form-item
+            v-for="f in fieldsForType"
+            :key="f.name"
+            :label="f.label"
+            :required="f.required"
+          >
+            <el-input
+              v-model="fieldsData[f.name]"
+              :type="f.type === 'password' ? 'password' : 'text'"
+              :show-password="f.type === 'password'"
+              :placeholder="f.placeholder"
+            />
+          </el-form-item>
+        </template>
+
+        <el-alert v-if="form.id" type="warning" show-icon :closable="false">
+          For security, existing values are never shown. Submit replaces them.
         </el-alert>
       </el-form>
       <template #footer>
