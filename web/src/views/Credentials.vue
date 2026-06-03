@@ -125,7 +125,7 @@ onMounted(reload)
     </ResponsiveTable>
 
     <el-dialog v-model="dialog" :title="form.id ? 'Edit Credential' : 'New Credential'" width="640px">
-      <el-form label-width="120px">
+      <el-form label-width="150px" style="max-width: 520px">
         <el-form-item label="Site">
           <el-select v-model="form.site_id">
             <el-option v-for="s in sites" :key="s.id" :label="s.name" :value="s.id" />
