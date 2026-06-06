@@ -29,7 +29,11 @@ export const api = {
     list() { return http.get('/sites').then(r => r.data) },
     get(id: number) { return http.get(`/sites/${id}`).then(r => r.data) },
     create(b: any) { return http.post('/sites', b).then(r => r.data) },
-    update(id: number, b: any) { return http.put(`/sites/${id}`, b).then(r => r.data) },
+    update(id: number, b: any, propagateBaseURL = false) {
+      return http.put(`/sites/${id}`, b, {
+        params: propagateBaseURL ? { propagate_base_url: 1 } : {}
+      }).then(r => r.data)
+    },
     remove(id: number) { return http.delete(`/sites/${id}`).then(r => r.data) }
   },
 

@@ -108,8 +108,30 @@ async function save() {
   }
   if (tagInput.value.trim()) commitTagInput()
   form.tags = tagList.value.join(',')
-  if (form.id) await api.sites.update(form.id, form)
-  else await api.sites.create(form)
+  if (!form.id) {
+    await api.sites.create(form)
+  } else {
+    const oldBaseURL = (editing.value?.base_url || '').trim().replace(/\/+$/, '')
+    let propagate = false
+    if (oldBaseURL && oldBaseURL !== form.base_url) {
+      const cols: any[] = await api.collectors.list(form.id)
+      const affected = cols.filter(c => c.pipeline_json && c.pipeline_json.includes(oldBaseURL)).length
+      if (affected > 0) {
+        try {
+          await ElMessageBox.confirm(
+            `${affected} 个 Collector 仍引用旧的 Base URL（${oldBaseURL}）。是否将它们更新为新的 Base URL？`,
+            '更新已有 Collector',
+            { confirmButtonText: '更新', cancelButtonText: '仅保存 Site', type: 'warning' }
+          )
+          propagate = true
+        } catch { propagate = false }
+      }
+    }
+    const res = await api.sites.update(form.id, form, propagate)
+    if (res?.updated_collectors) {
+      ElMessage.success(`已更新 ${res.updated_collectors} 个 Collector`)
+    }
+  }
   dialog.value = false
   await reload()
   ElMessage.success('saved')

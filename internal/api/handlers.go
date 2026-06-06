@@ -135,6 +135,7 @@ func (s *Server) updateSite(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "not found"})
 		return
 	}
+	oldBaseURL := row.BaseURL
 	var update models.Site
 	if err := c.ShouldBindJSON(&update); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
@@ -146,7 +147,28 @@ func (s *Server) updateSite(c *gin.Context) {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, update)
+
+	updatedCollectors := 0
+	if c.Query("propagate_base_url") == "1" &&
+		oldBaseURL != "" && update.BaseURL != "" && oldBaseURL != update.BaseURL {
+		var cols []models.Collector
+		_ = s.DB.Where("site_id = ?", row.ID).Find(&cols).Error
+		for _, col := range cols {
+			if col.PipelineJSON == "" || !strings.Contains(col.PipelineJSON, oldBaseURL) {
+				continue
+			}
+			np := strings.ReplaceAll(col.PipelineJSON, oldBaseURL, update.BaseURL)
+			if err := s.DB.Model(&models.Collector{}).
+				Where("id = ?", col.ID).
+				Update("pipeline_json", np).Error; err == nil {
+				updatedCollectors++
+			}
+		}
+		if updatedCollectors > 0 {
+			_ = s.Scheduler.Reload()
+		}
+	}
+	c.JSON(200, gin.H{"site": update, "updated_collectors": updatedCollectors})
 }
 
 func (s *Server) deleteSite(c *gin.Context) {
